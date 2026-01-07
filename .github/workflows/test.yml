@@ -32,7 +32,8 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
-          gleam-version: "1.6"
+          gleam-version: "1.13"
+          rebar3-version: "3"
 
       - name: Cache Gleam dependencies
         uses: actions/cache@v4
