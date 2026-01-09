@@ -11,12 +11,7 @@ const test_url = "postgresql://test:test@localhost:5433/glimr_test"
 
 pub fn start_with_valid_connection_test() {
   let connections = [
-    PostgresUriConnection(
-      name: "main",
-      is_default: True,
-      url: Ok(test_url),
-      pool_size: Ok(2),
-    ),
+    PostgresUriConnection(name: "main", url: Ok(test_url), pool_size: Ok(2)),
   ]
 
   let p = postgres.start("main", connections)
@@ -38,15 +33,9 @@ pub fn start_with_valid_connection_test() {
 
 pub fn start_with_multiple_connections_test() {
   let connections = [
-    PostgresUriConnection(
-      name: "primary",
-      is_default: True,
-      url: Ok(test_url),
-      pool_size: Ok(2),
-    ),
+    PostgresUriConnection(name: "primary", url: Ok(test_url), pool_size: Ok(2)),
     PostgresUriConnection(
       name: "secondary",
-      is_default: False,
       url: Ok(test_url),
       pool_size: Ok(1),
     ),
@@ -72,12 +61,7 @@ pub fn start_with_multiple_connections_test() {
 
 pub fn start_creates_usable_pool_test() {
   let connections = [
-    PostgresUriConnection(
-      name: "test",
-      is_default: True,
-      url: Ok(test_url),
-      pool_size: Ok(3),
-    ),
+    PostgresUriConnection(name: "test", url: Ok(test_url), pool_size: Ok(3)),
   ]
 
   let p = postgres.start("test", connections)

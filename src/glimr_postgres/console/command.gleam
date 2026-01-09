@@ -51,7 +51,7 @@ pub fn handler(cmd: Command, db_handler: fn(ParsedArgs, Pool) -> Nil) -> Command
     driver_type: driver.Postgres,
     run_with_pool: fn(args, conn) {
       case conn {
-        PostgresUriConnection(_, _, url, pool_size) -> {
+        PostgresUriConnection(_, url, pool_size) -> {
           case url, pool_size {
             Ok(u), Ok(ps) -> {
               let config = pool_connection.PostgresConfig(u, ps)
@@ -68,7 +68,6 @@ pub fn handler(cmd: Command, db_handler: fn(ParsedArgs, Pool) -> Nil) -> Command
         }
 
         PostgresConnection(
-          _,
           _,
           host,
           port,
