@@ -26,12 +26,14 @@ do_checkout(Name) ->
     end.
 
 %% Stop a pool by name
+%% Note: pog starts pools via pgo_pool:start_link directly, not through pgo_sup,
+%% so we must stop them with gen_server:stop, not supervisor:terminate_child.
 stop_pool(Name) when is_atom(Name) ->
     case whereis(Name) of
         undefined ->
             nil;
         Pid ->
-            supervisor:terminate_child(pgo_sup, Pid),
+            gen_server:stop(Pid, normal, 5000),
             nil
     end.
 

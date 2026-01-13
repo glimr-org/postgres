@@ -1,6 +1,8 @@
 import gleam/dynamic/decode
 import gleeunit/should
+import glimr/cache/driver.{DatabaseStore} as _cache_driver
 import glimr/db/driver.{PostgresUriConnection}
+import glimr_postgres/cache/cache as pg_cache
 import glimr_postgres/db/pool
 import glimr_postgres/postgres
 import pog
@@ -92,4 +94,98 @@ pub fn start_creates_usable_pool_test() {
   response.rows |> should.equal(["item1"])
 
   pool.stop_pool(p)
+}
+
+// ------------------------------------------------------------- start_cache
+
+pub fn start_cache_with_valid_store_test() {
+  let connections = [
+    PostgresUriConnection(name: "main", url: Ok(test_url), pool_size: Ok(2)),
+  ]
+  let stores = [
+    DatabaseStore(name: "cache", database: "main", table: "start_cache_test"),
+  ]
+
+  let db = postgres.start("main", connections)
+
+  // Create the cache table
+  pool.get_connection(db, fn(conn) {
+    let _ =
+      pog.query(
+        "CREATE TABLE IF NOT EXISTS start_cache_test (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          expiration BIGINT NOT NULL
+        )",
+      )
+      |> pog.execute(conn)
+    let _ = pog.query("TRUNCATE start_cache_test") |> pog.execute(conn)
+    Nil
+  })
+
+  // Start the cache pool
+  let cache = postgres.start_cache(db, "cache", stores)
+
+  // Verify it works by doing cache operations
+  pg_cache.put(cache, "test_key", "test_value", 3600) |> should.be_ok
+  pg_cache.get(cache, "test_key") |> should.be_ok |> should.equal("test_value")
+  pg_cache.forget(cache, "test_key") |> should.be_ok
+
+  pool.stop_pool(db)
+}
+
+pub fn start_cache_with_multiple_stores_test() {
+  let connections = [
+    PostgresUriConnection(name: "main", url: Ok(test_url), pool_size: Ok(2)),
+  ]
+  let stores = [
+    DatabaseStore(
+      name: "primary",
+      database: "main",
+      table: "cache_primary_test",
+    ),
+    DatabaseStore(
+      name: "secondary",
+      database: "main",
+      table: "cache_secondary_test",
+    ),
+  ]
+
+  let db = postgres.start("main", connections)
+
+  // Create both cache tables
+  pool.get_connection(db, fn(conn) {
+    let _ =
+      pog.query(
+        "CREATE TABLE IF NOT EXISTS cache_primary_test (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          expiration BIGINT NOT NULL
+        )",
+      )
+      |> pog.execute(conn)
+    let _ =
+      pog.query(
+        "CREATE TABLE IF NOT EXISTS cache_secondary_test (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          expiration BIGINT NOT NULL
+        )",
+      )
+      |> pog.execute(conn)
+    let _ = pog.query("TRUNCATE cache_primary_test") |> pog.execute(conn)
+    let _ = pog.query("TRUNCATE cache_secondary_test") |> pog.execute(conn)
+    Nil
+  })
+
+  // Start the secondary cache pool
+  let cache = postgres.start_cache(db, "secondary", stores)
+
+  // Verify it works
+  pg_cache.put(cache, "secondary_key", "secondary_value", 3600) |> should.be_ok
+  pg_cache.get(cache, "secondary_key")
+  |> should.be_ok
+  |> should.equal("secondary_value")
+
+  pool.stop_pool(db)
 }

@@ -18,17 +18,20 @@
 //// ```
 
 import glimr/console/command.{type Command}
+import glimr_postgres/internal/console/commands/cache_table
 import glimr_postgres/internal/console/commands/gen
 import glimr_postgres/internal/console/commands/migrate
 
 // ------------------------------------------------------------- Public Functions
 
-/// Returns the list of PostgreSQL console commands.
-/// Users add these to their command_provider.
+/// Returns the list of PostgreSQL console commands. Users
+/// add these to their command_provider to enable postgres
+/// specific CLI operations.
 ///
 pub fn commands() -> List(Command) {
   [
     migrate.command(),
     gen.command(),
+    cache_table.command(),
   ]
 }
