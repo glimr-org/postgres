@@ -1,12 +1,12 @@
 name = "glimr_postgres"
-version = "0.3.0"
+version = "0.4.0"
 
 description = "PostgreSQL driver for the Glimr web framework"
 licences = ["MIT"]
 repository = { type = "github", user = "glimr-org", repo = "postgres" }
 
 [dependencies]
-glimr = ">= 0.7.0 and < 0.8.0"
+glimr = ">= 0.8.0 and < 0.9.0"
 pog = ">= 4.0.0 and < 5.0.0"
 gleam_stdlib = ">= 0.44.0 and < 0.67.1"
 gleam_erlang = ">= 1.3.0 and < 2.0.0"
