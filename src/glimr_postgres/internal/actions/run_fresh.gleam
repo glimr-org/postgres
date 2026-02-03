@@ -30,7 +30,6 @@ pub fn run(pool: Pool, database: String) -> Nil {
       console.output()
       |> console.blank_line(1)
       |> console.line_success("Tables dropped.")
-      |> console.unpadded()
       |> console.print()
 
       // Now run migrations on fresh database

@@ -1,22 +1,66 @@
 import gleam/dynamic/decode
 import gleeunit/should
 import glimr/cache/driver.{DatabaseStore} as _cache_driver
-import glimr/db/driver.{PostgresUriConnection}
 import glimr_postgres/cache/cache as pg_cache
 import glimr_postgres/db/pool
 import glimr_postgres/postgres
 import pog
+import simplifile
 
 const test_url = "postgresql://test:test@localhost:5433/glimr_test"
+
+const config_dir = "config"
+
+const config_file = "config/database.toml"
+
+// ------------------------------------------------------------- Helpers
+
+fn setup_config(toml_content: String) -> Nil {
+  let _ = simplifile.create_directory_all(config_dir)
+  let _ = simplifile.write(config_file, toml_content)
+  Nil
+}
+
+fn cleanup_config() -> Nil {
+  let _ = simplifile.delete(config_file)
+  Nil
+}
+
+fn main_connection_toml() -> String {
+  "[connections.main]
+  driver = \"postgres_url\"
+  url = \"" <> test_url <> "\"
+  pool_size = 2
+"
+}
+
+fn multi_connection_toml() -> String {
+  "[connections.primary]
+  driver = \"postgres_url\"
+  url = \"" <> test_url <> "\"
+  pool_size = 2
+
+[connections.secondary]
+  driver = \"postgres_url\"
+  url = \"" <> test_url <> "\"
+  pool_size = 1
+"
+}
+
+fn test_connection_toml() -> String {
+  "[connections.test]
+  driver = \"postgres_url\"
+  url = \"" <> test_url <> "\"
+  pool_size = 3
+"
+}
 
 // ------------------------------------------------------------- start
 
 pub fn start_with_valid_connection_test() {
-  let connections = [
-    PostgresUriConnection(name: "main", url: Ok(test_url), pool_size: Ok(2)),
-  ]
+  setup_config(main_connection_toml())
 
-  let p = postgres.start("main", connections)
+  let p = postgres.start("main")
 
   // Verify the pool works by executing a query
   let result =
@@ -31,20 +75,14 @@ pub fn start_with_valid_connection_test() {
   response.rows |> should.equal([2])
 
   pool.stop_pool(p)
+  cleanup_config()
 }
 
 pub fn start_with_multiple_connections_test() {
-  let connections = [
-    PostgresUriConnection(name: "primary", url: Ok(test_url), pool_size: Ok(2)),
-    PostgresUriConnection(
-      name: "secondary",
-      url: Ok(test_url),
-      pool_size: Ok(1),
-    ),
-  ]
+  setup_config(multi_connection_toml())
 
   // Start the secondary connection
-  let p = postgres.start("secondary", connections)
+  let p = postgres.start("secondary")
 
   // Verify it works
   let result =
@@ -59,14 +97,13 @@ pub fn start_with_multiple_connections_test() {
   response.rows |> should.equal([42])
 
   pool.stop_pool(p)
+  cleanup_config()
 }
 
 pub fn start_creates_usable_pool_test() {
-  let connections = [
-    PostgresUriConnection(name: "test", url: Ok(test_url), pool_size: Ok(3)),
-  ]
+  setup_config(test_connection_toml())
 
-  let p = postgres.start("test", connections)
+  let p = postgres.start("test")
 
   // Use a single connection to create temp table, insert, and query
   let result =
@@ -94,19 +131,19 @@ pub fn start_creates_usable_pool_test() {
   response.rows |> should.equal(["item1"])
 
   pool.stop_pool(p)
+  cleanup_config()
 }
 
 // ------------------------------------------------------------- start_cache
 
 pub fn start_cache_with_valid_store_test() {
-  let connections = [
-    PostgresUriConnection(name: "main", url: Ok(test_url), pool_size: Ok(2)),
-  ]
+  setup_config(main_connection_toml())
+
   let stores = [
     DatabaseStore(name: "cache", database: "main", table: "start_cache_test"),
   ]
 
-  let db = postgres.start("main", connections)
+  let db = postgres.start("main")
 
   // Create the cache table
   pool.get_connection(db, fn(conn) {
@@ -132,12 +169,12 @@ pub fn start_cache_with_valid_store_test() {
   pg_cache.forget(cache, "test_key") |> should.be_ok
 
   pool.stop_pool(db)
+  cleanup_config()
 }
 
 pub fn start_cache_with_multiple_stores_test() {
-  let connections = [
-    PostgresUriConnection(name: "main", url: Ok(test_url), pool_size: Ok(2)),
-  ]
+  setup_config(main_connection_toml())
+
   let stores = [
     DatabaseStore(
       name: "primary",
@@ -151,7 +188,7 @@ pub fn start_cache_with_multiple_stores_test() {
     ),
   ]
 
-  let db = postgres.start("main", connections)
+  let db = postgres.start("main")
 
   // Create both cache tables
   pool.get_connection(db, fn(conn) {
@@ -188,4 +225,5 @@ pub fn start_cache_with_multiple_stores_test() {
   |> should.equal("secondary_value")
 
   pool.stop_pool(db)
+  cleanup_config()
 }
