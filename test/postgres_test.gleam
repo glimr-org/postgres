@@ -1,6 +1,7 @@
 import gleam/dynamic/decode
 import gleeunit/should
 import glimr/cache/driver.{DatabaseStore} as _cache_driver
+import glimr/config/database
 import glimr_postgres/cache/cache as pg_cache
 import glimr_postgres/db/pool
 import glimr_postgres/postgres
@@ -16,6 +17,7 @@ const config_file = "config/database.toml"
 // ------------------------------------------------------------- Helpers
 
 fn setup_config(toml_content: String) -> Nil {
+  database.clear_cache()
   let _ = simplifile.create_directory_all(config_dir)
   let _ = simplifile.write(config_file, toml_content)
   Nil
