@@ -27,7 +27,7 @@ import gleam/option.{None, Some}
 import gleam/string
 import glimr/cache/driver.{type CacheStore} as _cache_driver
 import glimr/console/command.{
-  type Command, type ParsedArgs, CommandWithCache, CommandWithDb,
+  type Args, type Command, CommandWithCache, CommandWithDb,
 }
 import glimr/console/console
 import glimr/db/driver.{PostgresConnection, PostgresUriConnection}
@@ -43,7 +43,7 @@ import glimr_postgres/db/pool.{type Pool}
 ///
 /// Your handler receives a fully typed `glimr_postgres.Pool`.
 ///
-pub fn handler(cmd: Command, db_handler: fn(ParsedArgs, Pool) -> Nil) -> Command {
+pub fn handler(cmd: Command, db_handler: fn(Args, Pool) -> Nil) -> Command {
   // Add --database option to existing args
   let new_args = list.append(cmd.args, [command.db_option()])
 
@@ -123,7 +123,7 @@ pub fn handler(cmd: Command, db_handler: fn(ParsedArgs, Pool) -> Nil) -> Command
 ///
 pub fn cache_handler(
   cmd: Command,
-  cache_db_handler: fn(ParsedArgs, Pool, List(CacheStore)) -> Nil,
+  cache_db_handler: fn(Args, Pool, List(CacheStore)) -> Nil,
 ) -> Command {
   // Add --database option to existing args
   let new_args = list.append(cmd.args, [command.db_option()])
@@ -210,8 +210,8 @@ pub fn cache_handler(
 ///
 fn start_pool_and_run(
   config: pool_connection.Config,
-  args: ParsedArgs,
-  db_handler: fn(ParsedArgs, Pool) -> Nil,
+  args: Args,
+  db_handler: fn(Args, Pool) -> Nil,
 ) -> Nil {
   case pool.start_pool(config) {
     Ok(p) -> {
@@ -232,9 +232,9 @@ fn start_pool_and_run(
 ///
 fn start_pool_and_run_cache(
   config: pool_connection.Config,
-  args: ParsedArgs,
+  args: Args,
   cache_stores: List(CacheStore),
-  cache_db_handler: fn(ParsedArgs, Pool, List(CacheStore)) -> Nil,
+  cache_db_handler: fn(Args, Pool, List(CacheStore)) -> Nil,
 ) -> Nil {
   case pool.start_pool(config) {
     Ok(p) -> {

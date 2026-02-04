@@ -2,7 +2,7 @@
 ////
 //// Runs pending migrations for PostgreSQL databases.
 
-import glimr/console/command.{type Command, type ParsedArgs, Flag}
+import glimr/console/command.{type Args, type Command, Flag}
 import glimr_postgres/console/command as command_postgres
 import glimr_postgres/db/pool.{type Pool}
 import glimr_postgres/internal/actions/run_fresh
@@ -37,7 +37,7 @@ pub fn command() -> Command {
 
 /// Executes the migrate command.
 ///
-fn run(args: ParsedArgs, pool: Pool) -> Nil {
+fn run(args: Args, pool: Pool) -> Nil {
   let database = command.get_option(args, "database")
   let fresh = command.has_flag(args, "fresh")
   let status = command.has_flag(args, "status")

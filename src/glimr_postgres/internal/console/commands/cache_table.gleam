@@ -5,7 +5,7 @@
 //// config_cache.gleam DatabaseStore configuration.
 
 import glimr/cache/driver.{type CacheStore, DatabaseStore}
-import glimr/console/command.{type Command, type ParsedArgs, Flag}
+import glimr/console/command.{type Args, type Command, Flag}
 import glimr/console/console
 import glimr_postgres/console/command as command_postgres
 import glimr_postgres/db/pool.{type Pool}
@@ -36,7 +36,7 @@ pub fn command() -> Command {
 
 /// Execute the console command.
 ///
-fn run(args: ParsedArgs, pool: Pool, cache_stores: List(CacheStore)) -> Nil {
+fn run(args: Args, pool: Pool, cache_stores: List(CacheStore)) -> Nil {
   let database = command.get_option(args, "database")
   let should_migrate = command.has_flag(args, "migrate")
 

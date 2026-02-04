@@ -6,9 +6,7 @@
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
-import glimr/console/command.{
-  type Command, type ParsedArgs, Flag, Option as CmdOption,
-}
+import glimr/console/command.{type Args, type Command, Flag, Option as CmdOption}
 import glimr/console/console
 import glimr/db/gen as db_gen
 import glimr/db/gen/migrate as gen_migrate
@@ -46,7 +44,7 @@ pub fn command() -> Command {
 
 /// Executes the gen command.
 ///
-fn run(args: ParsedArgs, pool: Pool) -> Nil {
+fn run(args: Args, pool: Pool) -> Nil {
   let database = command.get_option(args, "database")
   let model_option = command.get_option(args, "model")
   let should_migrate = command.has_flag(args, "migrate")
