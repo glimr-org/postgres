@@ -18,9 +18,9 @@
 //// ```
 
 import glimr/console/command.{type Command}
-import glimr_postgres/internal/console/commands/cache_table
-import glimr_postgres/internal/console/commands/gen
-import glimr_postgres/internal/console/commands/migrate
+import glimr_postgres/internal/console/commands/postgres_cache_table
+import glimr_postgres/internal/console/commands/postgres_gen
+import glimr_postgres/internal/console/commands/postgres_migrate
 
 // ------------------------------------------------------------- Public Functions
 
@@ -30,8 +30,8 @@ import glimr_postgres/internal/console/commands/migrate
 ///
 pub fn commands() -> List(Command) {
   [
-    migrate.command(),
-    gen.command(),
-    cache_table.command(),
+    postgres_migrate.command(),
+    postgres_gen.command(),
+    postgres_cache_table.command(),
   ]
 }

@@ -12,9 +12,6 @@ import glimr_postgres/db/pool.{type Pool}
 import glimr_postgres/internal/actions/gen_cache_table
 import glimr_postgres/internal/actions/run_migrate
 
-/// The name of the console command.
-const name = "postgres:cache-table"
-
 /// The console command description.
 const description = "Generate cache table migration for PostgreSQL"
 
@@ -22,7 +19,6 @@ const description = "Generate cache table migration for PostgreSQL"
 ///
 pub fn command() -> Command {
   command.new()
-  |> command.name(name)
   |> command.description(description)
   |> command.args([
     Flag(
@@ -60,4 +56,10 @@ fn run(args: Args, pool: Pool, cache_stores: List(CacheStore)) -> Nil {
       |> console.print()
     }
   }
+}
+
+/// Console command's entry point
+///
+pub fn main() {
+  command.run(command())
 }

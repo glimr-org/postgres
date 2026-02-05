@@ -15,9 +15,6 @@ import glimr_postgres/db/pool.{type Pool}
 import glimr_postgres/internal/actions/run_migrate
 import simplifile
 
-/// The name of the console command.
-const name = "postgres:gen"
-
 /// The console command description.
 const description = "Generate repository and migration code for PostgreSQL"
 
@@ -25,7 +22,6 @@ const description = "Generate repository and migration code for PostgreSQL"
 ///
 pub fn command() -> Command {
   command.new()
-  |> command.name(name)
   |> command.description(description)
   |> command.args([
     CmdOption(
@@ -124,4 +120,10 @@ fn validate_models(
       }
     }
   }
+}
+
+/// Console command's entry point
+///
+pub fn main() {
+  command.run(command())
 }
