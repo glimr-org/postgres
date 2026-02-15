@@ -6,8 +6,7 @@ licences = ["MIT"]
 repository = { type = "github", user = "glimr-org", repo = "postgres" }
 
 [dependencies]
-glimr = {path = "../framework"}
-# glimr = ">= 0.9.0 and < 0.10.0"
+glimr = ">= 0.9.0 and < 0.10.0"
 pog = ">= 4.0.0 and < 5.0.0"
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
 gleam_erlang = ">= 1.3.0 and < 2.0.0"
