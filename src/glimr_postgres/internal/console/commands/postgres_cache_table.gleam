@@ -1,9 +1,3 @@
-//// PostgreSQL Cache Table Command
-////
-//// Generates a migration file to create the cache table for
-//// PostgreSQL-backed cache storage. Reads the table name from
-//// config_cache.gleam DatabaseStore configuration.
-
 import glimr/cache/driver.{type CacheStore, DatabaseStore}
 import glimr/console/command.{type Args, type Command, Flag}
 import glimr/console/console

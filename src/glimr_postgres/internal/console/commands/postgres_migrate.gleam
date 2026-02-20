@@ -1,7 +1,3 @@
-//// PostgreSQL Migration Command
-////
-//// Runs pending migrations for PostgreSQL databases.
-
 import glimr/console/command.{type Args, type Command, Flag}
 import glimr_postgres/console/command as command_postgres
 import glimr_postgres/db/pool.{type Pool}

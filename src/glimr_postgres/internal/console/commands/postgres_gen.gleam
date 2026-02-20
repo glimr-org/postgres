@@ -1,8 +1,3 @@
-//// PostgreSQL Code Generation Command
-////
-//// Generates PostgreSQL-specific repository and migration code
-//// from schema definitions.
-
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
