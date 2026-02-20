@@ -13,6 +13,7 @@
 import glimr/cache/driver.{type CacheStore} as cache_driver
 import glimr/config/database
 import glimr/db/driver
+import glimr/session/session.{type Session}
 import glimr/session/store
 import glimr_postgres/cache/pool.{type Pool as CachePool} as cache_pool
 import glimr_postgres/db/pool.{type Pool}
@@ -60,8 +61,9 @@ pub fn start_cache(
 /// is available to every BEAM process without being threaded
 /// through function arguments.
 ///
-pub fn start_session(pool: Pool) -> Nil {
+pub fn start_session(pool: Pool) -> Session {
   let session = session_store.create(pool)
-
   store.cache_store(session)
+
+  session.empty()
 }
