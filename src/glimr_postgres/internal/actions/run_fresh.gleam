@@ -2,9 +2,8 @@ import gleam/dynamic/decode
 import gleam/list
 import gleam/string
 import glimr/console/console
-import glimr_postgres/db/pool.{type Pool, get_connection}
+import glimr/db/pool_connection.{type Connection, type Pool}
 import glimr_postgres/internal/actions/run_migrate
-import pog
 
 /// Drops first, then migrates — this order matters because
 /// run_migrate expects an empty or partially-migrated database.
@@ -13,7 +12,7 @@ import pog
 /// confusing duplicate-table errors.
 ///
 pub fn run(pool: Pool, database: String) -> Nil {
-  use conn <- get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
 
   // Drop all tables
   case drop_all_tables(conn) {
@@ -42,23 +41,29 @@ pub fn run(pool: Pool, database: String) -> Nil {
 /// tables whose names are SQL reserved words or contain special
 /// characters.
 ///
-fn drop_all_tables(conn: pog.Connection) -> Result(Nil, pog.QueryError) {
+fn drop_all_tables(conn: Connection) -> Result(Nil, pool_connection.DbError) {
   let decoder = {
     use name <- decode.field(0, decode.string)
     decode.success(name)
   }
 
   // Get all tables from public schema
-  let query =
-    pog.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
-    |> pog.returning(decoder)
-
-  case pog.execute(query, conn) {
-    Ok(pog.Returned(_, tables)) -> {
+  case
+    pool_connection.query_with(
+      conn,
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
+      [],
+      decoder,
+    )
+  {
+    Ok(pool_connection.QueryResult(_, tables)) -> {
       list.each(tables, fn(table) {
-        let drop_query =
-          pog.query("DROP TABLE IF EXISTS \"" <> table <> "\" CASCADE")
-        let _ = pog.execute(drop_query, conn)
+        let _ =
+          pool_connection.exec_with(
+            conn,
+            "DROP TABLE IF EXISTS \"" <> table <> "\" CASCADE",
+            [],
+          )
         Nil
       })
       Ok(Nil)

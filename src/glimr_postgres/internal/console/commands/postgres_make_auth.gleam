@@ -3,9 +3,9 @@ import gleam/string
 import glimr/console/command.{type Args, type Command, Argument, Flag}
 import glimr/db/gen as db_gen
 import glimr/db/gen/migrate as gen_migrate
+import glimr/db/pool_connection.{type Pool}
 import glimr/internal/services/make_auth_service
 import glimr_postgres/console/command as command_postgres
-import glimr_postgres/db/pool.{type Pool}
 import glimr_postgres/internal/actions/run_migrate
 
 /// The console command description.
@@ -38,10 +38,10 @@ fn run(args: Args, pool: Pool) -> Nil {
   make_auth_service.create_model(model_name, connection)
 
   // 2. Generate migration from schema
-  gen_migrate.run(connection, "postgres", Some([model_name]))
+  gen_migrate.run(connection, Some([model_name]))
 
   // 3. Generate repository from schema + queries
-  db_gen.run(connection, "postgres", Some([model_name]))
+  db_gen.run(connection, Some([model_name]))
 
   // 4. Generate load middleware (queries DB for full model)
   make_auth_service.create_load_middleware(model_name, connection)

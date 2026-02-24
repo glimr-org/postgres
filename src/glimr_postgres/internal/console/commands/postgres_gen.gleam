@@ -5,8 +5,8 @@ import glimr/console/command.{type Args, type Command, Flag, Option as CmdOption
 import glimr/console/console
 import glimr/db/gen as db_gen
 import glimr/db/gen/migrate as gen_migrate
+import glimr/db/pool_connection.{type Pool}
 import glimr_postgres/console/command as command_postgres
-import glimr_postgres/db/pool.{type Pool}
 import glimr_postgres/internal/actions/run_migrate
 import simplifile
 
@@ -57,11 +57,11 @@ fn run(args: Args, pool: Pool) -> Nil {
       |> console.print()
     }
     Ok(validated_filter) -> {
-      // Generate migrations with "postgres" driver type
-      gen_migrate.run(database, "postgres", validated_filter)
+      // Generate migrations
+      gen_migrate.run(database, validated_filter)
 
-      // Generate repositories with "postgres" driver type
-      db_gen.run(database, "postgres", validated_filter)
+      // Generate repositories
+      db_gen.run(database, validated_filter)
 
       // Optionally run migrations
       case should_migrate {

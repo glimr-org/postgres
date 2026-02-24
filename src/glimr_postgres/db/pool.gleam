@@ -1,8 +1,11 @@
-//// PostgreSQL connection pool management.
+//// PostgreSQL Connection Pool
 ////
-//// Provides connection pooling for PostgreSQL databases. Pools manage
-//// a set of reusable connections and handle checkout/checkin
-//// automatically through the get_connection function.
+//// Opening a new PostgreSQL connection per query adds TCP
+//// handshake and authentication overhead on every request.
+//// A pool keeps a fixed set of connections open and lends
+//// them out on demand, so queries execute against already-
+//// authenticated sockets and callers never need to manage
+//// connection lifecycle themselves.
 
 import gleam/erlang/process
 import gleam/option
@@ -15,9 +18,10 @@ import pog
 
 // ------------------------------------------------------------- Public Types
 
-/// A PostgreSQL connection pool. Manages reusable database connections
-/// and handles checkout/checkin automatically. Created with
-/// start_pool and should be stopped with stop_pool when done.
+/// The pool must be opaque so callers can't bypass the
+/// checkout/checkin protocol by accessing the raw connections
+/// directly. Storing closures rather than an Erlang PID keeps
+/// the Erlang pool internals hidden from Gleam code.
 ///
 pub opaque type Pool {
   Pool(
@@ -26,9 +30,10 @@ pub opaque type Pool {
   )
 }
 
-/// Pool operations returned from FFI. Contains closures that
-/// capture the internal pool handle, providing checkout and
-/// stop functionality without exposing Erlang internals.
+/// The Erlang FFI returns closures that capture the pool
+/// handle internally, so a named record type is needed to
+/// receive them across the FFI boundary. This stays public
+/// so the FFI module can construct it.
 ///
 pub type PoolOps {
   PoolOps(
@@ -37,24 +42,27 @@ pub type PoolOps {
   )
 }
 
-/// A PostgreSQL database connection. Obtained through get_connection
-/// and should not be stored or used outside the callback. This
-/// is an alias for the underlying pog.Connection type.
+/// Re-exporting pog.Connection under a local alias lets the
+/// rest of the codebase reference Connection without depending
+/// on pog directly, so swapping the underlying driver only
+/// requires changes here.
 ///
 pub type Connection =
   pog.Connection
 
-/// Represents errors that can occur during pool operations.
-/// Re-exported from pool_connection for convenience.
+/// Re-exporting DbError here keeps downstream modules from
+/// importing pool_connection just for the error type,
+/// reducing coupling to the framework internals.
 ///
 pub type DbError =
   pool_connection.DbError
 
 // ------------------------------------------------------------- Public Functions
 
-/// Creates a new connection pool from the given configuration.
-/// The pool manages a set of reusable database connections and
-/// handles checkout/checkin automatically.
+/// Wrapping the FFI result in the opaque Pool type ensures
+/// callers interact with the pool only through the public
+/// API. The Config is validated inside start, so errors from
+/// misconfiguration surface here rather than later.
 ///
 pub fn start_pool(config: Config) -> Result(Pool, DbError) {
   case start(config) {
@@ -63,17 +71,19 @@ pub fn start_pool(config: Config) -> Result(Pool, DbError) {
   }
 }
 
-/// Stops a connection pool and closes all connections. Should
-/// be called when the pool is no longer needed to free
-/// resources. Any connections still in use will be closed.
+/// PostgreSQL connections hold server-side resources (memory,
+/// process slots) that aren't released until the connection
+/// closes. Stopping the pool explicitly frees those resources
+/// instead of waiting for the BEAM process to exit.
 ///
 pub fn stop_pool(pool: Pool) -> Nil {
   pool.stop()
 }
 
-/// Executes a function with a connection from the pool. The
-/// connection is automatically checked out before the function
-/// runs and returned to the pool when it completes.
+/// A callback-based API guarantees the connection is returned
+/// to the pool even if the function crashes, preventing
+/// connection leaks that would eventually exhaust the pool
+/// under sustained traffic.
 ///
 pub fn get_connection(pool: Pool, f: fn(Connection) -> a) -> a {
   case pool.checkout() {
@@ -86,11 +96,23 @@ pub fn get_connection(pool: Pool, f: fn(Connection) -> a) -> a {
   }
 }
 
-// ------------------------------------------------------------- Internal Functions
+/// The framework's driver-agnostic Pool vtable needs the raw
+/// checkout and stop closures to wire PostgreSQL into the
+/// shared pool_connection interface. Returning a tuple avoids
+/// exposing the opaque Pool internals.
+///
+pub fn raw_checkout(
+  pool: Pool,
+) -> #(fn() -> Result(#(pog.Connection, fn() -> Nil), String), fn() -> Nil) {
+  #(pool.checkout, pool.stop)
+}
 
-/// Starts a PostgreSQL connection pool from the given configuration.
-/// Only accepts PostgresConfig, returns an error for SQLite
-/// configurations. Returns PoolOps with closures on success.
+// ------------------------------------------------------------- Private Functions
+
+/// Config is a shared union across drivers, so a SQLite variant
+/// could arrive here by mistake. Matching on the config type
+/// and rejecting non-Postgres variants gives a clear error
+/// instead of a confusing FFI crash.
 ///
 fn start(config: Config) -> Result(PoolOps, String) {
   case config {
@@ -101,11 +123,10 @@ fn start(config: Config) -> Result(PoolOps, String) {
   }
 }
 
-// ------------------------------------------------------------- Private Functions
-
-/// Starts a pool from a connection URL. Parses the URL using
-/// pog.url_config and configures the pool size before starting
-/// the underlying pog pool.
+/// Connection URLs pack all credentials into a single string,
+/// which is simpler for deployments that use DATABASE_URL env
+/// vars. pog.url_config handles the parsing so we don't need
+/// a custom URL parser.
 ///
 fn start_from_url(url: String, pool_size: Int) -> Result(PoolOps, String) {
   let pool_name = process.new_name(prefix: "glimr_pg_pool")
@@ -119,9 +140,10 @@ fn start_from_url(url: String, pool_size: Int) -> Result(PoolOps, String) {
   }
 }
 
-/// Starts a pool from individual connection parameters. Builds
-/// a pog config from host, port, database, username, password,
-/// and pool size settings.
+/// Some deployments separate credentials into individual fields
+/// (e.g., Kubernetes secrets per field) rather than a single
+/// URL. Accepting discrete parameters supports that pattern
+/// without forcing callers to assemble a URL string.
 ///
 fn start_from_params(
   host: String,
@@ -149,9 +171,10 @@ fn start_from_params(
   start_pog_pool(pool_name, config)
 }
 
-/// Starts the underlying pog pool with the given config. Creates
-/// PoolOps via FFI on success or returns an error message
-/// describing the failure.
+/// pog.start returns detailed actor failure variants that are
+/// meaningless to callers. Translating each variant into a
+/// human-readable string here keeps error handling simple for
+/// upstream code that only needs to know "it failed and why."
 ///
 fn start_pog_pool(
   pool_name: process.Name(pog.Message),
@@ -168,9 +191,10 @@ fn start_pog_pool(
 
 // ------------------------------------------------------------- FFI Bindings
 
-/// Creates PoolOps with closures that capture the pool name.
-/// The Erlang side returns checkout and stop functions that
-/// manage the underlying pgo connection pool.
+/// pgo's pool management API is Erlang-native and can't be
+/// called directly from Gleam. The FFI returns closures that
+/// capture the pool name, giving Gleam code a functional
+/// interface without exposing Erlang internals.
 ///
 @external(erlang, "pgo_pool_ffi", "make_pool_ops")
 fn make_pool_ops(pool_name: process.Name(pog.Message)) -> PoolOps

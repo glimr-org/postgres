@@ -1,9 +1,9 @@
 import gleam/dict
 import gleeunit/should
+import glimr/db/pool_connection
 import glimr/session/store
-import glimr_postgres/db/pool as db_pool
+import glimr_postgres/postgres
 import glimr_postgres/session/session_store
-import pog
 import simplifile
 import test_helper
 
@@ -37,23 +37,21 @@ fn cleanup_session_config() -> Nil {
 fn with_clean_session(f: fn() -> a) -> a {
   setup_session_config()
 
-  let config = test_helper.test_config()
-  let assert Ok(db) = db_pool.start_pool(config)
+  let db = postgres.start_from_config(test_helper.test_config())
 
   // Create sessions table
-  db_pool.get_connection(db, fn(conn) {
-    let _ =
-      pog.query(
-        "CREATE TABLE IF NOT EXISTS sessions_test (
-          id TEXT PRIMARY KEY,
-          payload TEXT NOT NULL,
-          last_activity INTEGER NOT NULL
-        )",
-      )
-      |> pog.execute(conn)
-    let _ = pog.query("TRUNCATE sessions_test") |> pog.execute(conn)
-    Nil
-  })
+  use conn <- pool_connection.get_connection(db)
+  let _ =
+    pool_connection.exec_with(
+      conn,
+      "CREATE TABLE IF NOT EXISTS sessions_test (
+        id TEXT PRIMARY KEY,
+        payload TEXT NOT NULL,
+        last_activity INTEGER NOT NULL
+      )",
+      [],
+    )
+  let _ = pool_connection.exec_with(conn, "TRUNCATE sessions_test", [])
 
   // Create and cache the session store
   let session = session_store.create(db)
@@ -61,7 +59,7 @@ fn with_clean_session(f: fn() -> a) -> a {
 
   let result = f()
 
-  db_pool.stop_pool(db)
+  pool_connection.stop_pool(db)
   cleanup_session_config()
   result
 }

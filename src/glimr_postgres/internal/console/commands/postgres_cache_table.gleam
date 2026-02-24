@@ -1,8 +1,8 @@
 import glimr/cache/driver.{type CacheStore, DatabaseStore}
 import glimr/console/command.{type Args, type Command, Flag}
 import glimr/console/console
+import glimr/db/pool_connection.{type Pool}
 import glimr_postgres/console/command as command_postgres
-import glimr_postgres/db/pool.{type Pool}
 import glimr_postgres/internal/actions/gen_cache_table
 import glimr_postgres/internal/actions/run_migrate
 

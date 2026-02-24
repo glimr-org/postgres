@@ -1,51 +1,64 @@
 import gleam/dynamic/decode
 import gleeunit/should
 import glimr/db/migrate as framework_migrate
+import glimr/db/pool_connection
 import glimr_postgres/db/migrate
-import glimr_postgres/db/pool
-import glimr_postgres/db/query
-import pog
+import glimr_postgres/postgres
 import test_helper
 
-fn with_pool(f: fn(pool.Pool) -> a) -> a {
-  let config = test_helper.test_config()
-  let assert Ok(p) = pool.start_pool(config)
+fn with_pool(f: fn(pool_connection.Pool) -> a) -> a {
+  let p = postgres.start_from_config(test_helper.test_config())
 
   // Clean up migrations table before each test
   let _ =
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS _glimr_migrations")
+    pool_connection.get_connection(p, fn(conn) {
+      let _ =
+        pool_connection.exec_with(
+          conn,
+          "DROP TABLE IF EXISTS _glimr_migrations",
+          [],
+        )
     })
 
   let result = f(p)
 
   // Clean up after test
   let _ =
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS _glimr_migrations")
+    pool_connection.get_connection(p, fn(conn) {
+      let _ =
+        pool_connection.exec_with(
+          conn,
+          "DROP TABLE IF EXISTS _glimr_migrations",
+          [],
+        )
     })
 
-  pool.stop_pool(p)
+  pool_connection.stop_pool(p)
   result
 }
 
 pub fn ensure_table_creates_migrations_table_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let result = migrate.ensure_table(conn)
       result |> should.be_ok
 
       // Verify table exists by querying it
       let decoder = decode.at([0], decode.string)
       let assert Ok(_) =
-        query.query(conn, "SELECT version FROM _glimr_migrations", [], decoder)
+        pool_connection.query_with(
+          conn,
+          "SELECT version FROM _glimr_migrations",
+          [],
+          decoder,
+        )
     })
   })
 }
 
 pub fn ensure_table_is_idempotent_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       // Call twice - should not error
       let assert Ok(_) = migrate.ensure_table(conn)
       let result = migrate.ensure_table(conn)
@@ -56,7 +69,7 @@ pub fn ensure_table_is_idempotent_test() {
 
 pub fn get_applied_returns_empty_for_new_table_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let result = migrate.get_applied(conn)
@@ -69,19 +82,23 @@ pub fn get_applied_returns_empty_for_new_table_test() {
 
 pub fn get_applied_returns_applied_versions_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       // Insert some versions manually
       let assert Ok(_) =
-        pog.query("INSERT INTO _glimr_migrations (version) VALUES ($1)")
-        |> pog.parameter(pog.text("20240101000000"))
-        |> pog.execute(conn)
+        pool_connection.exec_with(
+          conn,
+          "INSERT INTO _glimr_migrations (version) VALUES ($1)",
+          [pool_connection.string("20240101000000")],
+        )
 
       let assert Ok(_) =
-        pog.query("INSERT INTO _glimr_migrations (version) VALUES ($1)")
-        |> pog.parameter(pog.text("20240102000000"))
-        |> pog.execute(conn)
+        pool_connection.exec_with(
+          conn,
+          "INSERT INTO _glimr_migrations (version) VALUES ($1)",
+          [pool_connection.string("20240102000000")],
+        )
 
       let result = migrate.get_applied(conn)
       result |> should.be_ok
@@ -93,7 +110,7 @@ pub fn get_applied_returns_applied_versions_test() {
 
 pub fn apply_pending_single_migration_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migration =
@@ -110,8 +127,8 @@ pub fn apply_pending_single_migration_test() {
 
       // Verify table was created
       let decoder = decode.at([0], decode.string)
-      let assert Ok(tables) =
-        query.query(
+      let assert Ok(pool_connection.QueryResult(_, tables)) =
+        pool_connection.query_with(
           conn,
           "SELECT tablename FROM pg_tables WHERE tablename = 'test_migrate'",
           [],
@@ -124,14 +141,15 @@ pub fn apply_pending_single_migration_test() {
       recorded |> should.equal(["20240101000000"])
 
       // Clean up
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS test_migrate")
+      let _ =
+        pool_connection.exec_with(conn, "DROP TABLE IF EXISTS test_migrate", [])
     })
   })
 }
 
 pub fn apply_pending_multiple_migrations_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migrations = [
@@ -154,8 +172,8 @@ pub fn apply_pending_multiple_migrations_test() {
 
       // Verify both tables exist
       let decoder = decode.at([0], decode.string)
-      let assert Ok(tables) =
-        query.query(
+      let assert Ok(pool_connection.QueryResult(_, tables)) =
+        pool_connection.query_with(
           conn,
           "SELECT tablename FROM pg_tables WHERE tablename IN ('migrate_a', 'migrate_b') ORDER BY tablename",
           [],
@@ -164,15 +182,17 @@ pub fn apply_pending_multiple_migrations_test() {
       tables |> should.equal(["migrate_a", "migrate_b"])
 
       // Clean up
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS migrate_a")
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS migrate_b")
+      let _ =
+        pool_connection.exec_with(conn, "DROP TABLE IF EXISTS migrate_a", [])
+      let _ =
+        pool_connection.exec_with(conn, "DROP TABLE IF EXISTS migrate_b", [])
     })
   })
 }
 
 pub fn apply_pending_empty_list_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let result = migrate.apply_pending(conn, [])
@@ -185,7 +205,7 @@ pub fn apply_pending_empty_list_test() {
 
 pub fn apply_pending_stops_on_error_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migrations = [
@@ -215,8 +235,8 @@ pub fn apply_pending_stops_on_error_test() {
 
       // Third migration table should not exist
       let decoder = decode.at([0], decode.string)
-      let assert Ok(tables) =
-        query.query(
+      let assert Ok(pool_connection.QueryResult(_, tables)) =
+        pool_connection.query_with(
           conn,
           "SELECT tablename FROM pg_tables WHERE tablename = 'should_not_exist'",
           [],
@@ -225,14 +245,19 @@ pub fn apply_pending_stops_on_error_test() {
       tables |> should.equal([])
 
       // Clean up
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS migrate_valid")
+      let _ =
+        pool_connection.exec_with(
+          conn,
+          "DROP TABLE IF EXISTS migrate_valid",
+          [],
+        )
     })
   })
 }
 
 pub fn apply_pending_with_comments_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migration =
@@ -247,8 +272,8 @@ pub fn apply_pending_with_comments_test() {
 
       // Verify table was created
       let decoder = decode.at([0], decode.string)
-      let assert Ok(tables) =
-        query.query(
+      let assert Ok(pool_connection.QueryResult(_, tables)) =
+        pool_connection.query_with(
           conn,
           "SELECT tablename FROM pg_tables WHERE tablename = 'comment_test'",
           [],
@@ -257,14 +282,15 @@ pub fn apply_pending_with_comments_test() {
       tables |> should.equal(["comment_test"])
 
       // Clean up
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS comment_test")
+      let _ =
+        pool_connection.exec_with(conn, "DROP TABLE IF EXISTS comment_test", [])
     })
   })
 }
 
 pub fn apply_pending_with_multiple_statements_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migration =
@@ -279,8 +305,8 @@ pub fn apply_pending_with_multiple_statements_test() {
 
       // Verify both tables were created
       let decoder = decode.at([0], decode.string)
-      let assert Ok(tables) =
-        query.query(
+      let assert Ok(pool_connection.QueryResult(_, tables)) =
+        pool_connection.query_with(
           conn,
           "SELECT tablename FROM pg_tables WHERE tablename IN ('multi_a', 'multi_b') ORDER BY tablename",
           [],
@@ -289,8 +315,10 @@ pub fn apply_pending_with_multiple_statements_test() {
       tables |> should.equal(["multi_a", "multi_b"])
 
       // Clean up
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS multi_a")
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS multi_b")
+      let _ =
+        pool_connection.exec_with(conn, "DROP TABLE IF EXISTS multi_a", [])
+      let _ =
+        pool_connection.exec_with(conn, "DROP TABLE IF EXISTS multi_b", [])
     })
   })
 }

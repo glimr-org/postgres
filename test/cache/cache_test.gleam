@@ -3,35 +3,33 @@ import gleam/json
 import gleeunit/should
 import glimr/cache/cache
 import glimr/cache/driver
+import glimr/db/pool_connection
 import glimr_postgres/cache/cache as pg_cache
 import glimr_postgres/cache/pool as cache_pool
-import glimr_postgres/db/pool as db_pool
-import pog
+import glimr_postgres/postgres
 import test_helper
 
 fn with_clean_cache(f: fn(cache_pool.Pool) -> a) -> a {
-  let config = test_helper.test_config()
-  let assert Ok(db) = db_pool.start_pool(config)
+  let db = postgres.start_from_config(test_helper.test_config())
 
   let store = driver.DatabaseStore("test", "main", "cache_test")
   let pool = cache_pool.start_pool(db, store)
 
-  db_pool.get_connection(db, fn(conn) {
-    let _ =
-      pog.query(
-        "CREATE TABLE IF NOT EXISTS cache_test (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL,
-          expiration BIGINT NOT NULL
-        )",
-      )
-      |> pog.execute(conn)
-    let _ = pog.query("TRUNCATE cache_test") |> pog.execute(conn)
-    Nil
-  })
+  use conn <- pool_connection.get_connection(db)
+  let _ =
+    pool_connection.exec_with(
+      conn,
+      "CREATE TABLE IF NOT EXISTS cache_test (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        expiration BIGINT NOT NULL
+      )",
+      [],
+    )
+  let _ = pool_connection.exec_with(conn, "TRUNCATE cache_test", [])
 
   let result = f(pool)
-  db_pool.stop_pool(db)
+  pool_connection.stop_pool(db)
   result
 }
 

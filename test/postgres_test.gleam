@@ -2,10 +2,9 @@ import gleam/dynamic/decode
 import gleeunit/should
 import glimr/cache/driver.{DatabaseStore} as _cache_driver
 import glimr/config/database
+import glimr/db/pool_connection
 import glimr_postgres/cache/cache as pg_cache
-import glimr_postgres/db/pool
 import glimr_postgres/postgres
-import pog
 import simplifile
 
 const test_url = "postgresql://test:test@localhost:5433/glimr_test"
@@ -66,17 +65,16 @@ pub fn start_with_valid_connection_test() {
 
   // Verify the pool works by executing a query
   let result =
-    pool.get_connection(p, fn(conn) {
-      pog.query("SELECT 1 + 1 as result")
-      |> pog.returning(decode.at([0], decode.int))
-      |> pog.execute(conn)
+    pool_connection.get_connection(p, fn(conn) {
+      let decoder = decode.at([0], decode.int)
+      pool_connection.query_with(conn, "SELECT 1 + 1 as result", [], decoder)
     })
 
   result |> should.be_ok
-  let assert Ok(response) = result
-  response.rows |> should.equal([2])
+  let assert Ok(pool_connection.QueryResult(_, rows)) = result
+  rows |> should.equal([2])
 
-  pool.stop_pool(p)
+  pool_connection.stop_pool(p)
   cleanup_config()
 }
 
@@ -88,17 +86,16 @@ pub fn start_with_multiple_connections_test() {
 
   // Verify it works
   let result =
-    pool.get_connection(p, fn(conn) {
-      pog.query("SELECT 42")
-      |> pog.returning(decode.at([0], decode.int))
-      |> pog.execute(conn)
+    pool_connection.get_connection(p, fn(conn) {
+      let decoder = decode.at([0], decode.int)
+      pool_connection.query_with(conn, "SELECT 42", [], decoder)
     })
 
   result |> should.be_ok
-  let assert Ok(response) = result
-  response.rows |> should.equal([42])
+  let assert Ok(pool_connection.QueryResult(_, rows)) = result
+  rows |> should.equal([42])
 
-  pool.stop_pool(p)
+  pool_connection.stop_pool(p)
   cleanup_config()
 }
 
@@ -109,30 +106,38 @@ pub fn start_creates_usable_pool_test() {
 
   // Use a single connection to create temp table, insert, and query
   let result =
-    pool.get_connection(p, fn(conn) {
+    pool_connection.get_connection(p, fn(conn) {
       // Create temp table
       let assert Ok(_) =
-        pog.query(
+        pool_connection.exec_with(
+          conn,
           "CREATE TEMP TABLE test_items (id SERIAL PRIMARY KEY, name TEXT)",
+          [],
         )
-        |> pog.execute(conn)
 
       // Insert data
       let assert Ok(_) =
-        pog.query("INSERT INTO test_items (name) VALUES ('item1')")
-        |> pog.execute(conn)
+        pool_connection.exec_with(
+          conn,
+          "INSERT INTO test_items (name) VALUES ('item1')",
+          [],
+        )
 
       // Query the data back
-      pog.query("SELECT name FROM test_items WHERE id = 1")
-      |> pog.returning(decode.at([0], decode.string))
-      |> pog.execute(conn)
+      let decoder = decode.at([0], decode.string)
+      pool_connection.query_with(
+        conn,
+        "SELECT name FROM test_items WHERE id = 1",
+        [],
+        decoder,
+      )
     })
 
   result |> should.be_ok
-  let assert Ok(response) = result
-  response.rows |> should.equal(["item1"])
+  let assert Ok(pool_connection.QueryResult(_, rows)) = result
+  rows |> should.equal(["item1"])
 
-  pool.stop_pool(p)
+  pool_connection.stop_pool(p)
   cleanup_config()
 }
 
@@ -148,19 +153,18 @@ pub fn start_cache_with_valid_store_test() {
   let db = postgres.start("main")
 
   // Create the cache table
-  pool.get_connection(db, fn(conn) {
-    let _ =
-      pog.query(
-        "CREATE TABLE IF NOT EXISTS start_cache_test (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL,
-          expiration BIGINT NOT NULL
-        )",
-      )
-      |> pog.execute(conn)
-    let _ = pog.query("TRUNCATE start_cache_test") |> pog.execute(conn)
-    Nil
-  })
+  use conn <- pool_connection.get_connection(db)
+  let _ =
+    pool_connection.exec_with(
+      conn,
+      "CREATE TABLE IF NOT EXISTS start_cache_test (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        expiration BIGINT NOT NULL
+      )",
+      [],
+    )
+  let _ = pool_connection.exec_with(conn, "TRUNCATE start_cache_test", [])
 
   // Start the cache pool
   let cache = postgres.start_cache(db, "cache", stores)
@@ -170,7 +174,7 @@ pub fn start_cache_with_valid_store_test() {
   pg_cache.get(cache, "test_key") |> should.be_ok |> should.equal("test_value")
   pg_cache.forget(cache, "test_key") |> should.be_ok
 
-  pool.stop_pool(db)
+  pool_connection.stop_pool(db)
   cleanup_config()
 }
 
@@ -193,29 +197,29 @@ pub fn start_cache_with_multiple_stores_test() {
   let db = postgres.start("main")
 
   // Create both cache tables
-  pool.get_connection(db, fn(conn) {
-    let _ =
-      pog.query(
-        "CREATE TABLE IF NOT EXISTS cache_primary_test (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL,
-          expiration BIGINT NOT NULL
-        )",
-      )
-      |> pog.execute(conn)
-    let _ =
-      pog.query(
-        "CREATE TABLE IF NOT EXISTS cache_secondary_test (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL,
-          expiration BIGINT NOT NULL
-        )",
-      )
-      |> pog.execute(conn)
-    let _ = pog.query("TRUNCATE cache_primary_test") |> pog.execute(conn)
-    let _ = pog.query("TRUNCATE cache_secondary_test") |> pog.execute(conn)
-    Nil
-  })
+  use conn <- pool_connection.get_connection(db)
+  let _ =
+    pool_connection.exec_with(
+      conn,
+      "CREATE TABLE IF NOT EXISTS cache_primary_test (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        expiration BIGINT NOT NULL
+      )",
+      [],
+    )
+  let _ =
+    pool_connection.exec_with(
+      conn,
+      "CREATE TABLE IF NOT EXISTS cache_secondary_test (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        expiration BIGINT NOT NULL
+      )",
+      [],
+    )
+  let _ = pool_connection.exec_with(conn, "TRUNCATE cache_primary_test", [])
+  let _ = pool_connection.exec_with(conn, "TRUNCATE cache_secondary_test", [])
 
   // Start the secondary cache pool
   let cache = postgres.start_cache(db, "secondary", stores)
@@ -226,6 +230,6 @@ pub fn start_cache_with_multiple_stores_test() {
   |> should.be_ok
   |> should.equal("secondary_value")
 
-  pool.stop_pool(db)
+  pool_connection.stop_pool(db)
   cleanup_config()
 }

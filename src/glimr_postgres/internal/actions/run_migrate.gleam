@@ -4,8 +4,8 @@ import gleam/result
 import gleam/string
 import glimr/console/console
 import glimr/db/migrate as framework_migrate
+import glimr/db/pool_connection.{type Pool}
 import glimr_postgres/db/migrate
-import glimr_postgres/db/pool.{type Pool, get_connection}
 
 /// The three setup steps are chained with result.try so a
 /// failure at any point (can't create tracking table, can't
@@ -15,7 +15,7 @@ import glimr_postgres/db/pool.{type Pool, get_connection}
 /// console output shows which step failed.
 ///
 pub fn run(pool: Pool, database: String) -> Nil {
-  use conn <- get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
 
   let setup = {
     use _ <- result.try(
@@ -56,7 +56,7 @@ pub fn run(pool: Pool, database: String) -> Nil {
 /// crash the command or leave confusing output.
 ///
 pub fn show_status(pool: Pool, database: String) -> Nil {
-  use conn <- get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
 
   {
     use _ <- result.try(migrate.ensure_table(conn) |> result.replace_error(Nil))
@@ -81,7 +81,7 @@ pub fn show_status(pool: Pool, database: String) -> Nil {
 /// migration is better reported than silently swallowed.
 ///
 fn apply_pending(
-  conn: pool.Connection,
+  conn: pool_connection.Connection,
   pending: List(framework_migrate.Migration),
 ) -> Nil {
   case pending {

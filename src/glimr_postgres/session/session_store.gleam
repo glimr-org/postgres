@@ -12,12 +12,10 @@
 import gleam/dict
 import gleam/dynamic/decode
 import glimr/config/session as session_config
+import glimr/db/pool_connection.{type Pool}
 import glimr/session/payload
 import glimr/session/store.{type SessionStore}
 import glimr/utils/unix_timestamp
-import glimr_postgres/db/pool.{type Pool}
-import glimr_postgres/db/query
-import pog
 
 // ------------------------------------------------------------- Internal Public Functions
 
@@ -63,16 +61,17 @@ fn load(
   let sql =
     "SELECT payload FROM " <> table <> " WHERE id = $1 AND last_activity >= $2"
 
-  use conn <- pool.get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
   case
-    query.query(
+    pool_connection.query_with(
       conn,
       sql,
-      [pog.text(session_id), pog.int(cutoff)],
+      [pool_connection.string(session_id), pool_connection.int(cutoff)],
       decode.at([0], decode.string),
     )
   {
-    Ok([payload_json]) -> payload.decode(payload_json)
+    Ok(pool_connection.QueryResult(_, [payload_json])) ->
+      payload.decode(payload_json)
     _ -> #(dict.new(), dict.new())
   }
 }
@@ -99,15 +98,19 @@ fn save(
     "INSERT INTO "
     <> table
     <> " (id, payload, last_activity) VALUES ($1, $2, $3) "
-    <> "ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, last_activity = EXCLUDED.last_activity"
+    <> "ON CONFLICT (id) DO UPDATE SET payload = excluded.payload, last_activity = excluded.last_activity"
 
-  use conn <- pool.get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
 
   let _ = {
-    query.query(
+    pool_connection.query_with(
       conn,
       sql,
-      [pog.text(session_id), pog.text(encoded), pog.int(now)],
+      [
+        pool_connection.string(session_id),
+        pool_connection.string(encoded),
+        pool_connection.int(now),
+      ],
       decode.string,
     )
   }
@@ -123,9 +126,15 @@ fn save(
 fn destroy(pool: Pool, table: String, session_id: String) -> Nil {
   let sql = "DELETE FROM " <> table <> " WHERE id = $1"
 
-  use conn <- pool.get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
 
-  let _ = query.query(conn, sql, [pog.text(session_id)], decode.string)
+  let _ =
+    pool_connection.query_with(
+      conn,
+      sql,
+      [pool_connection.string(session_id)],
+      decode.string,
+    )
 
   Nil
 }
@@ -141,9 +150,15 @@ fn gc(pool: Pool, table: String, lifetime: Int) -> Nil {
   let cutoff = unix_timestamp.now() - lifetime * 60
   let sql = "DELETE FROM " <> table <> " WHERE last_activity < $1"
 
-  use conn <- pool.get_connection(pool)
+  use conn <- pool_connection.get_connection(pool)
 
-  let _ = query.query(conn, sql, [pog.int(cutoff)], decode.string)
+  let _ =
+    pool_connection.query_with(
+      conn,
+      sql,
+      [pool_connection.int(cutoff)],
+      decode.string,
+    )
 
   Nil
 }
