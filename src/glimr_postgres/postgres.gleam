@@ -10,6 +10,7 @@
 //// manual config loading and plumbing.
 ////
 
+import gleam/string
 import glimr/cache/driver.{type CacheStore} as cache_driver
 import glimr/config/database
 import glimr/db/driver
@@ -70,11 +71,26 @@ pub fn start_session(pool: Pool) -> Session {
 
 // ------------------------------------------------------------- Internal Public Functions
 
+/// Non-panicking variant of start_from_config for use in
+/// console commands where a failed pool start should print an 
+/// error rather than crash the process.
+///
+@internal
+pub fn try_start_from_config(
+  config: pool_connection.Config,
+) -> Result(Pool, String) {
+  case pool.start_pool(config) {
+    Ok(db_pool) -> Ok(wrap_pool(db_pool))
+    Error(e) -> Error(string.inspect(e))
+  }
+}
+
 /// Tests and benchmarks need pools without reading
 /// database.toml, so accepting a pre-built Config lets them
 /// bypass file I/O and supply custom connection parameters
 /// directly.
 ///
+@internal
 pub fn start_from_config(config: pool_connection.Config) -> Pool {
   let assert Ok(db_pool) = pool.start_pool(config)
   wrap_pool(db_pool)
@@ -85,6 +101,7 @@ pub fn start_from_config(config: pool_connection.Config) -> Pool {
 /// here wires in the query and exec implementations so the
 /// rest of the framework can use it without knowing the driver.
 ///
+@internal
 pub fn wrap_pool(db_pool: pool.Pool) -> Pool {
   let #(checkout, stop) = pool.raw_checkout(db_pool)
 

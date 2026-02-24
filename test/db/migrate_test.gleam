@@ -1,8 +1,7 @@
 import gleam/dynamic/decode
 import gleeunit/should
-import glimr/db/migrate as framework_migrate
+import glimr/db/migrate
 import glimr/db/pool_connection
-import glimr_postgres/db/migrate
 import glimr_postgres/postgres
 import test_helper
 
@@ -114,7 +113,7 @@ pub fn apply_pending_single_migration_test() {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migration =
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240101000000",
           name: "create_test_table",
           sql: "CREATE TABLE test_migrate (id INTEGER)",
@@ -153,12 +152,12 @@ pub fn apply_pending_multiple_migrations_test() {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migrations = [
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240101000000",
           name: "create_table_a",
           sql: "CREATE TABLE migrate_a (id INTEGER)",
         ),
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240102000000",
           name: "create_table_b",
           sql: "CREATE TABLE migrate_b (id INTEGER)",
@@ -209,17 +208,17 @@ pub fn apply_pending_stops_on_error_test() {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migrations = [
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240101000000",
           name: "valid_migration",
           sql: "CREATE TABLE migrate_valid (id INTEGER)",
         ),
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240102000000",
           name: "invalid_migration",
           sql: "INVALID SQL STATEMENT",
         ),
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240103000000",
           name: "should_not_run",
           sql: "CREATE TABLE should_not_exist (id INTEGER)",
@@ -261,7 +260,7 @@ pub fn apply_pending_with_comments_test() {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migration =
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240101000000",
           name: "with_comments",
           sql: "-- This is a comment\nCREATE TABLE comment_test (id INTEGER)\n-- Another comment",
@@ -294,7 +293,7 @@ pub fn apply_pending_with_multiple_statements_test() {
       let assert Ok(_) = migrate.ensure_table(conn)
 
       let migration =
-        framework_migrate.Migration(
+        migrate.Migration(
           version: "20240101000000",
           name: "multi_statement",
           sql: "CREATE TABLE multi_a (id INTEGER); CREATE TABLE multi_b (name TEXT)",
