@@ -1,9 +1,9 @@
 import gleam/dynamic/decode
 import gleeunit/should
-import glimr/cache/driver.{DatabaseStore} as _cache_driver
+import glimr/cache/cache
+import glimr/cache/database as cache_database
 import glimr/config/database
 import glimr/db/pool_connection
-import glimr_postgres/cache/cache as pg_cache
 import glimr_postgres/postgres
 import simplifile
 
@@ -146,10 +146,6 @@ pub fn start_creates_usable_pool_test() {
 pub fn start_cache_with_valid_store_test() {
   setup_config(main_connection_toml())
 
-  let stores = [
-    DatabaseStore(name: "cache", database: "main", table: "start_cache_test"),
-  ]
-
   let db = postgres.start("main")
 
   // Create the cache table
@@ -167,12 +163,12 @@ pub fn start_cache_with_valid_store_test() {
   let _ = pool_connection.exec_with(conn, "TRUNCATE start_cache_test", [])
 
   // Start the cache pool
-  let cache = postgres.start_cache(db, "cache", stores)
+  let pool = cache_database.start_with_table(db, "start_cache_test")
 
   // Verify it works by doing cache operations
-  pg_cache.put(cache, "test_key", "test_value", 3600) |> should.be_ok
-  pg_cache.get(cache, "test_key") |> should.be_ok |> should.equal("test_value")
-  pg_cache.forget(cache, "test_key") |> should.be_ok
+  cache.put(pool, "test_key", "test_value", 3600) |> should.be_ok
+  cache.get(pool, "test_key") |> should.be_ok |> should.equal("test_value")
+  cache.forget(pool, "test_key") |> should.be_ok
 
   pool_connection.stop_pool(db)
   cleanup_config()
@@ -180,19 +176,6 @@ pub fn start_cache_with_valid_store_test() {
 
 pub fn start_cache_with_multiple_stores_test() {
   setup_config(main_connection_toml())
-
-  let stores = [
-    DatabaseStore(
-      name: "primary",
-      database: "main",
-      table: "cache_primary_test",
-    ),
-    DatabaseStore(
-      name: "secondary",
-      database: "main",
-      table: "cache_secondary_test",
-    ),
-  ]
 
   let db = postgres.start("main")
 
@@ -222,11 +205,11 @@ pub fn start_cache_with_multiple_stores_test() {
   let _ = pool_connection.exec_with(conn, "TRUNCATE cache_secondary_test", [])
 
   // Start the secondary cache pool
-  let cache = postgres.start_cache(db, "secondary", stores)
+  let pool = cache_database.start_with_table(db, "cache_secondary_test")
 
   // Verify it works
-  pg_cache.put(cache, "secondary_key", "secondary_value", 3600) |> should.be_ok
-  pg_cache.get(cache, "secondary_key")
+  cache.put(pool, "secondary_key", "secondary_value", 3600) |> should.be_ok
+  cache.get(pool, "secondary_key")
   |> should.be_ok
   |> should.equal("secondary_value")
 
