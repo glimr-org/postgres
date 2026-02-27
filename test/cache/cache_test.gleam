@@ -7,7 +7,7 @@ import glimr/db/pool_connection
 import glimr_postgres/postgres
 import test_helper
 
-fn with_clean_cache(f: fn(cache.CachePool, pool_connection.Pool) -> a) -> a {
+fn with_clean_cache(f: fn(cache.CachePool, pool_connection.DbPool) -> a) -> a {
   let db = postgres.start_from_config(test_helper.test_config())
 
   use conn <- pool_connection.get_connection(db)

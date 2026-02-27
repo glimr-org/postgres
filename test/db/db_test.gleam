@@ -4,7 +4,7 @@ import glimr/db/pool_connection.{ConnectionError, QueryError}
 import glimr_postgres/postgres
 import test_helper
 
-fn with_pool(f: fn(pool_connection.Pool) -> a) -> a {
+fn with_pool(f: fn(pool_connection.DbPool) -> a) -> a {
   let p = postgres.start_from_config(test_helper.test_config())
 
   // Create test table

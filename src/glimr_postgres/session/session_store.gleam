@@ -12,7 +12,7 @@
 import gleam/dict
 import gleam/dynamic/decode
 import glimr/config/session as session_config
-import glimr/db/pool_connection.{type Pool}
+import glimr/db/pool_connection.{type DbPool}
 import glimr/session/payload
 import glimr/session/store.{type SessionStore}
 import glimr/utils/unix_timestamp
@@ -27,7 +27,7 @@ import glimr/utils/unix_timestamp
 /// boot rather than on every request.
 ///
 @internal
-pub fn create(pool: Pool) -> SessionStore {
+pub fn create(pool: DbPool) -> SessionStore {
   let config = session_config.load()
   let table = config.table
 
@@ -52,7 +52,7 @@ pub fn create(pool: Pool) -> SessionStore {
 /// save and gc.
 ///
 fn load(
-  pool: Pool,
+  pool: DbPool,
   table: String,
   session_id: String,
   lifetime: Int,
@@ -85,7 +85,7 @@ fn load(
 /// creation time.
 ///
 fn save(
-  pool: Pool,
+  pool: DbPool,
   table: String,
   session_id: String,
   data: dict.Dict(String, String),
@@ -123,7 +123,7 @@ fn save(
 /// fixation attacks. The delete is idempotent; if GC already
 /// removed the row, the query simply affects zero rows.
 ///
-fn destroy(pool: Pool, table: String, session_id: String) -> Nil {
+fn destroy(pool: DbPool, table: String, session_id: String) -> Nil {
   let sql = "DELETE FROM " <> table <> " WHERE id = $1"
 
   use conn <- pool_connection.get_connection(pool)
@@ -146,7 +146,7 @@ fn destroy(pool: Pool, table: String, session_id: String) -> Nil {
 /// Called probabilistically by the middleware so no single
 /// request pays the full cleanup cost.
 ///
-fn gc(pool: Pool, table: String, lifetime: Int) -> Nil {
+fn gc(pool: DbPool, table: String, lifetime: Int) -> Nil {
   let cutoff = unix_timestamp.now() - lifetime * 60
   let sql = "DELETE FROM " <> table <> " WHERE last_activity < $1"
 

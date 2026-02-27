@@ -15,7 +15,7 @@ import glimr/cache/cache.{type CachePool}
 import glimr/cache/database as cache_database
 import glimr/config/database
 import glimr/db/driver
-import glimr/db/pool_connection.{type Pool}
+import glimr/db/pool_connection.{type DbPool}
 import glimr/session/session.{type Session}
 import glimr/session/store
 import glimr_postgres/db/pool
@@ -32,7 +32,7 @@ import glimr_postgres/session/session_store
 /// clear stack trace instead of propagating errors through
 /// every downstream function that tries to use the pool.
 ///
-pub fn start(name: String) -> Pool {
+pub fn start(name: String) -> DbPool {
   let connections = database.load()
   let conn = driver.find_by_name(name, connections)
   let config = driver.to_config(conn)
@@ -45,7 +45,7 @@ pub fn start(name: String) -> Pool {
 /// into the framework's cache system using a regular SQL table
 /// — same CachePool API, no extra infrastructure to manage.
 ///
-pub fn start_cache(db_pool: Pool, name: String) -> CachePool {
+pub fn start_cache(db_pool: DbPool, name: String) -> CachePool {
   cache_database.start(db_pool, name)
 }
 
@@ -56,7 +56,7 @@ pub fn start_cache(db_pool: Pool, name: String) -> CachePool {
 /// store is available to every BEAM process without being
 /// threaded through function arguments.
 ///
-pub fn start_session(pool: Pool) -> Session {
+pub fn start_session(pool: DbPool) -> Session {
   let session = session_store.create(pool)
   store.cache_store(session)
 
@@ -74,7 +74,7 @@ pub fn start_session(pool: Pool) -> Session {
 @internal
 pub fn try_start_from_config(
   config: pool_connection.Config,
-) -> Result(Pool, String) {
+) -> Result(DbPool, String) {
   case pool.start_pool(config) {
     Ok(db_pool) -> Ok(wrap_pool(db_pool))
     Error(e) -> Error(string.inspect(e))
@@ -88,7 +88,7 @@ pub fn try_start_from_config(
 /// and config lookup.
 ///
 @internal
-pub fn start_from_config(config: pool_connection.Config) -> Pool {
+pub fn start_from_config(config: pool_connection.Config) -> DbPool {
   let assert Ok(db_pool) = pool.start_pool(config)
   wrap_pool(db_pool)
 }
@@ -102,7 +102,7 @@ pub fn start_from_config(config: pool_connection.Config) -> Pool {
 /// hood.
 ///
 @internal
-pub fn wrap_pool(db_pool: pool.Pool) -> Pool {
+pub fn wrap_pool(db_pool: pool.Pool) -> DbPool {
   let #(checkout, stop) = pool.raw_checkout(db_pool)
 
   pool_connection.new_pool(
