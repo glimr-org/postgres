@@ -5,7 +5,7 @@
 //// by code generated from database schemas.
 
 import gleam/option.{type Option}
-import glimr/db/pool_connection.{
+import glimr/db/db.{
   type Value, BlobValue, BoolValue, FloatValue, IntValue, NullValue, StringValue,
 }
 import pog
@@ -17,7 +17,7 @@ import pog
 /// binding in prepared statements.
 ///
 pub fn int(v: Int) -> Value {
-  pool_connection.int(v)
+  db.int(v)
 }
 
 /// Creates a float parameter value for use in queries.
@@ -25,7 +25,7 @@ pub fn int(v: Int) -> Value {
 /// binding in prepared statements.
 ///
 pub fn float(v: Float) -> Value {
-  pool_connection.float(v)
+  db.float(v)
 }
 
 /// Creates a string parameter value for use in queries.
@@ -33,7 +33,7 @@ pub fn float(v: Float) -> Value {
 /// binding in prepared statements.
 ///
 pub fn string(v: String) -> Value {
-  pool_connection.string(v)
+  db.string(v)
 }
 
 /// Creates a boolean parameter value for use in queries.
@@ -41,7 +41,7 @@ pub fn string(v: String) -> Value {
 /// binding in prepared statements.
 ///
 pub fn bool(v: Bool) -> Value {
-  pool_connection.bool(v)
+  db.bool(v)
 }
 
 /// Creates a NULL parameter value for use in queries.
@@ -49,7 +49,7 @@ pub fn bool(v: Bool) -> Value {
 /// a parameter value in prepared statements.
 ///
 pub fn null() -> Value {
-  pool_connection.null()
+  db.null()
 }
 
 /// Creates a blob parameter value for use in queries.
@@ -57,7 +57,7 @@ pub fn null() -> Value {
 /// parameter binding in prepared statements.
 ///
 pub fn blob(v: BitArray) -> Value {
-  pool_connection.blob(v)
+  db.blob(v)
 }
 
 /// Creates an optional parameter value for use in queries.
@@ -65,7 +65,7 @@ pub fn blob(v: BitArray) -> Value {
 /// to NULL for parameter binding in prepared statements.
 ///
 pub fn nullable(inner: fn(a) -> Value, v: Option(a)) -> Value {
-  pool_connection.nullable(inner, v)
+  db.nullable(inner, v)
 }
 
 // ------------------------------------------------------------- Internal Public Functions

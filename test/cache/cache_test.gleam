@@ -3,16 +3,16 @@ import gleam/json
 import gleeunit/should
 import glimr/cache/cache
 import glimr/cache/database as cache_database
-import glimr/db/pool_connection
+import glimr/db/db
 import glimr_postgres/postgres
 import test_helper
 
-fn with_clean_cache(f: fn(cache.CachePool, pool_connection.DbPool) -> a) -> a {
+fn with_clean_cache(f: fn(cache.CachePool, db.DbPool) -> a) -> a {
   let db = postgres.start_from_config(test_helper.test_config())
 
-  use conn <- pool_connection.get_connection(db)
+  use conn <- db.get_connection(db)
   let _ =
-    pool_connection.exec_with(
+    db.exec_with(
       conn,
       "CREATE TABLE IF NOT EXISTS cache_test (
         key TEXT PRIMARY KEY,
@@ -21,11 +21,11 @@ fn with_clean_cache(f: fn(cache.CachePool, pool_connection.DbPool) -> a) -> a {
       )",
       [],
     )
-  let _ = pool_connection.exec_with(conn, "TRUNCATE cache_test", [])
+  let _ = db.exec_with(conn, "TRUNCATE cache_test", [])
 
   let pool = cache_database.start_with_table(db, "cache_test")
   let result = f(pool, db)
-  pool_connection.stop_pool(db)
+  db.stop_pool(db)
   result
 }
 
@@ -34,7 +34,7 @@ fn with_clean_cache(f: fn(cache.CachePool, pool_connection.DbPool) -> a) -> a {
 pub fn create_table_test() {
   let db = postgres.start_from_config(test_helper.test_config())
   cache_database.create_table(db, "cache_test") |> should.be_ok
-  pool_connection.stop_pool(db)
+  db.stop_pool(db)
 }
 
 pub fn put_and_get_test() {

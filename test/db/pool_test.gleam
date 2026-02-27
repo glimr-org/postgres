@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleam/option
 import gleeunit/should
-import glimr/db/pool_connection
+import glimr/db/db
 import glimr_postgres/db/pool
 import pog
 import test_helper
@@ -18,7 +18,7 @@ pub fn start_pool_with_url_config_test() {
 
 pub fn start_pool_with_params_config_test() {
   let config =
-    pool_connection.PostgresParamsConfig(
+    db.PostgresParamsConfig(
       host: "localhost",
       port: 5433,
       database: "glimr_test",
@@ -35,7 +35,7 @@ pub fn start_pool_with_params_config_test() {
 }
 
 pub fn start_pool_with_invalid_url_test() {
-  let config = pool_connection.PostgresConfig("invalid-url", 2)
+  let config = db.PostgresConfig("invalid-url", 2)
   let result = pool.start_pool(config)
 
   result |> should.be_error
@@ -107,7 +107,7 @@ pub fn get_connection_multiple_times_test() {
 }
 
 pub fn start_pool_with_sqlite_config_fails_test() {
-  let config = pool_connection.SqliteConfig("test.db", 2)
+  let config = db.SqliteConfig("test.db", 2)
   let result = pool.start_pool(config)
 
   result |> should.be_error

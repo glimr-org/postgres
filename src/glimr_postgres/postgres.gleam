@@ -14,8 +14,8 @@ import gleam/string
 import glimr/cache/cache.{type CachePool}
 import glimr/cache/database as cache_database
 import glimr/config/database
+import glimr/db/db.{type DbPool}
 import glimr/db/driver
-import glimr/db/pool_connection.{type DbPool}
 import glimr/session/session.{type Session}
 import glimr/session/store
 import glimr_postgres/db/pool
@@ -72,9 +72,7 @@ pub fn start_session(pool: DbPool) -> Session {
 /// handle the error gracefully.
 ///
 @internal
-pub fn try_start_from_config(
-  config: pool_connection.Config,
-) -> Result(DbPool, String) {
+pub fn try_start_from_config(config: db.Config) -> Result(DbPool, String) {
   case pool.start_pool(config) {
     Ok(db_pool) -> Ok(wrap_pool(db_pool))
     Error(e) -> Error(string.inspect(e))
@@ -88,7 +86,7 @@ pub fn try_start_from_config(
 /// and config lookup.
 ///
 @internal
-pub fn start_from_config(config: pool_connection.Config) -> DbPool {
+pub fn start_from_config(config: db.Config) -> DbPool {
   let assert Ok(db_pool) = pool.start_pool(config)
   wrap_pool(db_pool)
 }
@@ -97,21 +95,21 @@ pub fn start_from_config(config: pool_connection.Config) -> DbPool {
 /// callbacks so it can work with any database driver without
 /// knowing the concrete types. This wires in the
 /// Postgres-specific query and exec implementations so code
-/// that receives a Pool can call pool_connection.query or
-/// pool_connection.exec and have it route to pgo under the
+/// that receives a Pool can call db.query or
+/// db.exec and have it route to pgo under the
 /// hood.
 ///
 @internal
 pub fn wrap_pool(db_pool: pool.Pool) -> DbPool {
   let #(checkout, stop) = pool.raw_checkout(db_pool)
 
-  pool_connection.new_pool(
-    driver: pool_connection.Postgres,
-    query_fn: pool_connection.to_dynamic(query.vtable_query),
-    exec_fn: pool_connection.to_dynamic(query.vtable_exec),
+  db.new_pool(
+    driver: db.Postgres,
+    query_fn: db.to_dynamic(query.vtable_query),
+    exec_fn: db.to_dynamic(query.vtable_exec),
     checkout: fn() {
       case checkout() {
-        Ok(#(conn, release)) -> Ok(#(pool_connection.to_dynamic(conn), release))
+        Ok(#(conn, release)) -> Ok(#(db.to_dynamic(conn), release))
         Error(msg) -> Error(msg)
       }
     },

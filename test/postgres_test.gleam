@@ -3,7 +3,7 @@ import gleeunit/should
 import glimr/cache/cache
 import glimr/cache/database as cache_database
 import glimr/config/database
-import glimr/db/pool_connection
+import glimr/db/db
 import glimr_postgres/postgres
 import simplifile
 
@@ -65,16 +65,16 @@ pub fn start_with_valid_connection_test() {
 
   // Verify the pool works by executing a query
   let result =
-    pool_connection.get_connection(p, fn(conn) {
+    db.get_connection(p, fn(conn) {
       let decoder = decode.at([0], decode.int)
-      pool_connection.query_with(conn, "SELECT 1 + 1 as result", [], decoder)
+      db.query_with(conn, "SELECT 1 + 1 as result", [], decoder)
     })
 
   result |> should.be_ok
-  let assert Ok(pool_connection.QueryResult(_, rows)) = result
+  let assert Ok(db.QueryResult(_, rows)) = result
   rows |> should.equal([2])
 
-  pool_connection.stop_pool(p)
+  db.stop_pool(p)
   cleanup_config()
 }
 
@@ -86,16 +86,16 @@ pub fn start_with_multiple_connections_test() {
 
   // Verify it works
   let result =
-    pool_connection.get_connection(p, fn(conn) {
+    db.get_connection(p, fn(conn) {
       let decoder = decode.at([0], decode.int)
-      pool_connection.query_with(conn, "SELECT 42", [], decoder)
+      db.query_with(conn, "SELECT 42", [], decoder)
     })
 
   result |> should.be_ok
-  let assert Ok(pool_connection.QueryResult(_, rows)) = result
+  let assert Ok(db.QueryResult(_, rows)) = result
   rows |> should.equal([42])
 
-  pool_connection.stop_pool(p)
+  db.stop_pool(p)
   cleanup_config()
 }
 
@@ -106,10 +106,10 @@ pub fn start_creates_usable_pool_test() {
 
   // Use a single connection to create temp table, insert, and query
   let result =
-    pool_connection.get_connection(p, fn(conn) {
+    db.get_connection(p, fn(conn) {
       // Create temp table
       let assert Ok(_) =
-        pool_connection.exec_with(
+        db.exec_with(
           conn,
           "CREATE TEMP TABLE test_items (id SERIAL PRIMARY KEY, name TEXT)",
           [],
@@ -117,15 +117,11 @@ pub fn start_creates_usable_pool_test() {
 
       // Insert data
       let assert Ok(_) =
-        pool_connection.exec_with(
-          conn,
-          "INSERT INTO test_items (name) VALUES ('item1')",
-          [],
-        )
+        db.exec_with(conn, "INSERT INTO test_items (name) VALUES ('item1')", [])
 
       // Query the data back
       let decoder = decode.at([0], decode.string)
-      pool_connection.query_with(
+      db.query_with(
         conn,
         "SELECT name FROM test_items WHERE id = 1",
         [],
@@ -134,10 +130,10 @@ pub fn start_creates_usable_pool_test() {
     })
 
   result |> should.be_ok
-  let assert Ok(pool_connection.QueryResult(_, rows)) = result
+  let assert Ok(db.QueryResult(_, rows)) = result
   rows |> should.equal(["item1"])
 
-  pool_connection.stop_pool(p)
+  db.stop_pool(p)
   cleanup_config()
 }
 
@@ -149,9 +145,9 @@ pub fn start_cache_with_valid_store_test() {
   let db = postgres.start("main")
 
   // Create the cache table
-  use conn <- pool_connection.get_connection(db)
+  use conn <- db.get_connection(db)
   let _ =
-    pool_connection.exec_with(
+    db.exec_with(
       conn,
       "CREATE TABLE IF NOT EXISTS start_cache_test (
         key TEXT PRIMARY KEY,
@@ -160,7 +156,7 @@ pub fn start_cache_with_valid_store_test() {
       )",
       [],
     )
-  let _ = pool_connection.exec_with(conn, "TRUNCATE start_cache_test", [])
+  let _ = db.exec_with(conn, "TRUNCATE start_cache_test", [])
 
   // Start the cache pool
   let pool = cache_database.start_with_table(db, "start_cache_test")
@@ -170,7 +166,7 @@ pub fn start_cache_with_valid_store_test() {
   cache.get(pool, "test_key") |> should.be_ok |> should.equal("test_value")
   cache.forget(pool, "test_key") |> should.be_ok
 
-  pool_connection.stop_pool(db)
+  db.stop_pool(db)
   cleanup_config()
 }
 
@@ -180,9 +176,9 @@ pub fn start_cache_with_multiple_stores_test() {
   let db = postgres.start("main")
 
   // Create both cache tables
-  use conn <- pool_connection.get_connection(db)
+  use conn <- db.get_connection(db)
   let _ =
-    pool_connection.exec_with(
+    db.exec_with(
       conn,
       "CREATE TABLE IF NOT EXISTS cache_primary_test (
         key TEXT PRIMARY KEY,
@@ -192,7 +188,7 @@ pub fn start_cache_with_multiple_stores_test() {
       [],
     )
   let _ =
-    pool_connection.exec_with(
+    db.exec_with(
       conn,
       "CREATE TABLE IF NOT EXISTS cache_secondary_test (
         key TEXT PRIMARY KEY,
@@ -201,8 +197,8 @@ pub fn start_cache_with_multiple_stores_test() {
       )",
       [],
     )
-  let _ = pool_connection.exec_with(conn, "TRUNCATE cache_primary_test", [])
-  let _ = pool_connection.exec_with(conn, "TRUNCATE cache_secondary_test", [])
+  let _ = db.exec_with(conn, "TRUNCATE cache_primary_test", [])
+  let _ = db.exec_with(conn, "TRUNCATE cache_secondary_test", [])
 
   // Start the secondary cache pool
   let pool = cache_database.start_with_table(db, "cache_secondary_test")
@@ -213,6 +209,6 @@ pub fn start_cache_with_multiple_stores_test() {
   |> should.be_ok
   |> should.equal("secondary_value")
 
-  pool_connection.stop_pool(db)
+  db.stop_pool(db)
   cleanup_config()
 }

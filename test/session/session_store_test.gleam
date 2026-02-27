@@ -1,6 +1,6 @@
 import gleam/dict
 import gleeunit/should
-import glimr/db/pool_connection
+import glimr/db/db
 import glimr/session/store
 import glimr_postgres/postgres
 import glimr_postgres/session/session_store
@@ -40,9 +40,9 @@ fn with_clean_session(f: fn() -> a) -> a {
   let db = postgres.start_from_config(test_helper.test_config())
 
   // Create sessions table
-  use conn <- pool_connection.get_connection(db)
+  use conn <- db.get_connection(db)
   let _ =
-    pool_connection.exec_with(
+    db.exec_with(
       conn,
       "CREATE TABLE IF NOT EXISTS sessions_test (
         id TEXT PRIMARY KEY,
@@ -51,7 +51,7 @@ fn with_clean_session(f: fn() -> a) -> a {
       )",
       [],
     )
-  let _ = pool_connection.exec_with(conn, "TRUNCATE sessions_test", [])
+  let _ = db.exec_with(conn, "TRUNCATE sessions_test", [])
 
   // Create and cache the session store
   let session = session_store.create(db)
@@ -59,7 +59,7 @@ fn with_clean_session(f: fn() -> a) -> a {
 
   let result = f()
 
-  pool_connection.stop_pool(db)
+  db.stop_pool(db)
   cleanup_session_config()
   result
 }

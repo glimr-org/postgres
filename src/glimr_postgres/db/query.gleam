@@ -10,7 +10,7 @@ import gleam/dynamic.{type Dynamic}
 import gleam/dynamic/decode.{type Decoder}
 import gleam/int
 import gleam/list
-import glimr/db/pool_connection.{
+import glimr/db/db.{
   type DbError, type QueryResult, type Value, ConnectionError, DecodeError,
   QueryError, QueryResult, TimeoutError,
 }
@@ -63,7 +63,7 @@ pub fn exec(conn: Connection, sql: String) -> Result(Int, DbError) {
   }
 }
 
-/// The framework's pool_connection dispatches through a vtable
+/// The framework's db dispatches through a vtable
 /// of Dynamic-typed callbacks so it stays driver-agnostic.
 /// This function satisfies that interface by coercing the
 /// handle and converting generic Values to pog-specific values
@@ -131,7 +131,7 @@ fn add_pog_params(q: pog.Query(t), params: List(pog.Value)) -> pog.Query(t) {
 fn map_error(e: pog.QueryError) -> DbError {
   case e {
     pog.ConstraintViolated(msg, constraint, _) ->
-      pool_connection.ConstraintError(msg, constraint)
+      db.ConstraintError(msg, constraint)
     pog.PostgresqlError(_, _, msg) -> QueryError(msg)
     pog.UnexpectedArgumentCount(expected, got) ->
       QueryError(

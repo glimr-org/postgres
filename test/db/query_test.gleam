@@ -1,6 +1,6 @@
 import gleam/dynamic/decode
 import gleeunit/should
-import glimr/db/pool_connection.{QueryError}
+import glimr/db/db.{QueryError}
 import glimr_postgres/db/pool
 import glimr_postgres/db/query
 import pog
