@@ -13,7 +13,6 @@
 import gleam/string
 import glimr/cache/cache.{type CachePool}
 import glimr/cache/database as cache_database
-import glimr/config/database
 import glimr/db/db.{type DbPool}
 import glimr/db/driver
 import glimr/session/session.{type Session}
@@ -33,7 +32,7 @@ import glimr_postgres/session/session_store
 /// every downstream function that tries to use the pool.
 ///
 pub fn start(name: String) -> DbPool {
-  let connections = database.load()
+  let connections = driver.load_connections()
   let conn = driver.find_by_name(name, connections)
   let config = driver.to_config(conn)
   start_from_config(config)

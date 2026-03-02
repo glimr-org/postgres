@@ -1,5 +1,6 @@
 import gleam/dict
 import gleeunit/should
+import glimr/config
 import glimr/db/db
 import glimr/session/store
 import glimr_postgres/postgres
@@ -16,20 +17,20 @@ fn setup_session_config() -> Nil {
   let _ =
     simplifile.write(
       session_config_file,
-      "[session]
-  table = \"sessions_test\"
-  cookie = \"test_session\"
-  lifetime = 120
-  expire_on_close = false
+      "table = \"sessions_test\"
+cookie = \"test_session\"
+lifetime = 120
+expire_on_close = false
 ",
     )
-  clear_session_config()
+  clear_config_cache()
+  config.load()
   Nil
 }
 
 fn cleanup_session_config() -> Nil {
   let _ = simplifile.delete(session_config_file)
-  clear_session_config()
+  clear_config_cache()
   clear_session_store()
   Nil
 }
@@ -184,8 +185,8 @@ pub fn gc_does_not_crash_test() {
 
 // ------------------------------------------------------------- FFI Helpers
 
-@external(erlang, "glimr_session_test_ffi", "clear_session_config")
-fn clear_session_config() -> Nil
+@external(erlang, "glimr_session_test_ffi", "clear_config_cache")
+fn clear_config_cache() -> Nil
 
 @external(erlang, "glimr_session_test_ffi", "clear_session_store")
 fn clear_session_store() -> Nil

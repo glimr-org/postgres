@@ -1,8 +1,8 @@
 -module(glimr_session_test_ffi).
--export([clear_session_config/0, clear_session_store/0]).
+-export([clear_config_cache/0, clear_session_store/0]).
 
-clear_session_config() ->
-    try persistent_term:erase(glimr_session_config) of
+clear_config_cache() ->
+    try persistent_term:erase({glimr_config, <<"toml">>}) of
         _ -> nil
     catch
         error:badarg -> nil

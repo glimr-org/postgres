@@ -11,7 +11,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
-import glimr/config/session as session_config
+import glimr/config
 import glimr/db/db.{type DbPool}
 import glimr/session/payload
 import glimr/session/store.{type SessionStore}
@@ -28,16 +28,16 @@ import glimr/utils/unix_timestamp
 ///
 @internal
 pub fn create(pool: DbPool) -> SessionStore {
-  let config = session_config.load()
-  let table = config.table
+  let table = config.get_string("session.table")
+  let lifetime = config.get_int("session.lifetime")
 
   store.new(
-    load: fn(session_id) { load(pool, table, session_id, config.lifetime) },
+    load: fn(session_id) { load(pool, table, session_id, lifetime) },
     save: fn(session_id, data, flash) {
-      save(pool, table, session_id, data, flash, config.lifetime)
+      save(pool, table, session_id, data, flash, lifetime)
     },
     destroy: fn(session_id) { destroy(pool, table, session_id) },
-    gc: fn() { gc(pool, table, config.lifetime) },
+    gc: fn() { gc(pool, table, lifetime) },
     cookie_value: fn(id, _, _) { id },
   )
 }
