@@ -2,7 +2,7 @@ import gleam/dynamic/decode
 import gleeunit/should
 import glimr/cache/cache
 import glimr/cache/database as cache_database
-import glimr/config
+import glimr/config/config
 import glimr/db/db
 import glimr/db/driver
 import glimr_postgres/postgres

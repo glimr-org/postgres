@@ -11,7 +11,7 @@
 
 import gleam/dict
 import gleam/dynamic/decode
-import glimr/config
+import glimr/config/config
 import glimr/db/db.{type DbPool}
 import glimr/session/payload
 import glimr/session/store.{type SessionStore}

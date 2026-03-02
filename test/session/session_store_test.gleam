@@ -1,6 +1,6 @@
 import gleam/dict
 import gleeunit/should
-import glimr/config
+import glimr/config/config
 import glimr/db/db
 import glimr/session/store
 import glimr_postgres/postgres
