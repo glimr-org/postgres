@@ -1,8 +1,8 @@
 import gleam/dict
 import gleeunit/should
-import glimr/config/config
+import glimr/config
 import glimr/db/db
-import glimr/session/store
+import glimr/session
 import glimr_postgres/postgres
 import glimr_postgres/session/session_store
 import simplifile
@@ -55,8 +55,8 @@ fn with_clean_session(f: fn() -> a) -> a {
   let _ = db.exec_with(conn, "TRUNCATE sessions_test", [])
 
   // Create and cache the session store
-  let session = session_store.create(db)
-  store.cache_store(session)
+  let store = session_store.create(db)
+  session.setup(store)
 
   let result = f()
 
@@ -69,7 +69,7 @@ fn with_clean_session(f: fn() -> a) -> a {
 
 pub fn load_nonexistent_session_returns_empty_test() {
   with_clean_session(fn() {
-    let #(data, flash) = store.load("nonexistent-id")
+    let #(data, flash) = session.load("nonexistent-id")
 
     data |> should.equal(dict.new())
     flash |> should.equal(dict.new())
@@ -85,9 +85,9 @@ pub fn save_and_load_data_test() {
       |> dict.insert("user_id", "42")
       |> dict.insert("role", "admin")
 
-    store.save("sess-1", data, dict.new())
+    session.save("sess-1", data, dict.new())
 
-    let #(loaded_data, loaded_flash) = store.load("sess-1")
+    let #(loaded_data, loaded_flash) = session.load("sess-1")
 
     dict.get(loaded_data, "user_id") |> should.equal(Ok("42"))
     dict.get(loaded_data, "role") |> should.equal(Ok("admin"))
@@ -102,9 +102,9 @@ pub fn save_and_load_flash_test() {
       |> dict.insert("success", "Saved!")
       |> dict.insert("info", "Note this")
 
-    store.save("sess-2", dict.new(), flash)
+    session.save("sess-2", dict.new(), flash)
 
-    let #(loaded_data, loaded_flash) = store.load("sess-2")
+    let #(loaded_data, loaded_flash) = session.load("sess-2")
 
     loaded_data |> should.equal(dict.new())
     dict.get(loaded_flash, "success") |> should.equal(Ok("Saved!"))
@@ -122,9 +122,9 @@ pub fn save_and_load_data_and_flash_test() {
       dict.new()
       |> dict.insert("warning", "Check your email")
 
-    store.save("sess-3", data, flash)
+    session.save("sess-3", data, flash)
 
-    let #(loaded_data, loaded_flash) = store.load("sess-3")
+    let #(loaded_data, loaded_flash) = session.load("sess-3")
 
     dict.get(loaded_data, "user_id") |> should.equal(Ok("99"))
     dict.get(loaded_flash, "warning") |> should.equal(Ok("Check your email"))
@@ -137,15 +137,15 @@ pub fn save_overwrites_existing_session_test() {
       dict.new()
       |> dict.insert("key", "first")
 
-    store.save("sess-4", data1, dict.new())
+    session.save("sess-4", data1, dict.new())
 
     let data2 =
       dict.new()
       |> dict.insert("key", "second")
 
-    store.save("sess-4", data2, dict.new())
+    session.save("sess-4", data2, dict.new())
 
-    let #(loaded_data, _) = store.load("sess-4")
+    let #(loaded_data, _) = session.load("sess-4")
     dict.get(loaded_data, "key") |> should.equal(Ok("second"))
   })
 }
@@ -158,29 +158,29 @@ pub fn destroy_removes_session_test() {
       dict.new()
       |> dict.insert("key", "value")
 
-    store.save("sess-5", data, dict.new())
+    session.save("sess-5", data, dict.new())
 
     // Verify it exists
-    let #(loaded, _) = store.load("sess-5")
+    let #(loaded, _) = session.load("sess-5")
     dict.get(loaded, "key") |> should.equal(Ok("value"))
 
     // Destroy it
-    store.destroy("sess-5")
+    session.destroy("sess-5")
 
     // Should be gone
-    let #(loaded_after, _) = store.load("sess-5")
+    let #(loaded_after, _) = session.load("sess-5")
     loaded_after |> should.equal(dict.new())
   })
 }
 
 pub fn destroy_nonexistent_does_not_crash_test() {
-  with_clean_session(fn() { store.destroy("nonexistent") })
+  with_clean_session(fn() { session.destroy("nonexistent") })
 }
 
 // ------------------------------------------------------------- GC Tests
 
 pub fn gc_does_not_crash_test() {
-  with_clean_session(fn() { store.gc() })
+  with_clean_session(fn() { session.gc() })
 }
 
 // ------------------------------------------------------------- FFI Helpers

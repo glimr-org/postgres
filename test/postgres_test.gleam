@@ -1,8 +1,7 @@
 import gleam/dynamic/decode
 import gleeunit/should
-import glimr/cache/cache
-import glimr/cache/database as cache_database
-import glimr/config/config
+import glimr/cache
+import glimr/config
 import glimr/db/db
 import glimr/db/driver
 import glimr_postgres/postgres
@@ -162,7 +161,7 @@ pub fn start_cache_with_valid_store_test() {
   let _ = db.exec_with(conn, "TRUNCATE start_cache_test", [])
 
   // Start the cache pool
-  let pool = cache_database.start_with_table(db, "start_cache_test")
+  let pool = cache.database_start_with_table(db, "start_cache_test")
 
   // Verify it works by doing cache operations
   cache.put(pool, "test_key", "test_value", 3600) |> should.be_ok
@@ -204,7 +203,7 @@ pub fn start_cache_with_multiple_stores_test() {
   let _ = db.exec_with(conn, "TRUNCATE cache_secondary_test", [])
 
   // Start the secondary cache pool
-  let pool = cache_database.start_with_table(db, "cache_secondary_test")
+  let pool = cache.database_start_with_table(db, "cache_secondary_test")
 
   // Verify it works
   cache.put(pool, "secondary_key", "secondary_value", 3600) |> should.be_ok

@@ -11,11 +11,10 @@
 ////
 
 import gleam/string
-import glimr/cache/cache.{type CachePool}
-import glimr/cache/database as cache_database
+import glimr/cache.{type CachePool}
 import glimr/db/db.{type DbPool}
 import glimr/db/driver
-import glimr/session/store.{type SessionStore}
+import glimr/session.{type SessionStore}
 import glimr_postgres/db/pool
 import glimr_postgres/db/query
 import glimr_postgres/session/session_store
@@ -44,7 +43,7 @@ pub fn start(name: String) -> DbPool {
 /// — same CachePool API, no extra infrastructure to manage.
 ///
 pub fn start_cache(db_pool: DbPool, name: String) -> CachePool {
-  cache_database.start(db_pool, name)
+  cache.database_start(db_pool, name)
 }
 
 /// If you're already running Postgres, storing sessions there

@@ -1,7 +1,7 @@
 import gleam/dynamic/decode
 import gleeunit/should
 import glimr/db/db
-import glimr/db/migrate
+import glimr/internal/db/migrate
 import glimr_postgres/postgres
 import test_helper
 

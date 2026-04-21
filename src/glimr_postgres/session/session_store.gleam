@@ -11,10 +11,9 @@
 
 import gleam/dict
 import gleam/dynamic/decode
-import glimr/config/config
+import glimr/config
 import glimr/db/db.{type DbPool}
-import glimr/session/payload
-import glimr/session/store.{type SessionStore}
+import glimr/session.{type SessionStore}
 import glimr/utils/unix_timestamp
 
 // ------------------------------------------------------------- Internal Public Functions
@@ -31,7 +30,7 @@ pub fn create(pool: DbPool) -> SessionStore {
   let table = config.get_string("session.table")
   let lifetime = config.get_int("session.lifetime")
 
-  store.new(
+  session.new(
     load: fn(session_id) { load(pool, table, session_id, lifetime) },
     save: fn(session_id, data, flash) {
       save(pool, table, session_id, data, flash, lifetime)
@@ -70,7 +69,8 @@ fn load(
       decode.at([0], decode.string),
     )
   {
-    Ok(db.QueryResult(_, [payload_json])) -> payload.decode(payload_json)
+    Ok(db.QueryResult(_, [payload_json])) ->
+      session.decode_payload(payload_json)
     _ -> #(dict.new(), dict.new())
   }
 }
@@ -91,7 +91,7 @@ fn save(
   flash: dict.Dict(String, String),
   _lifetime: Int,
 ) -> Nil {
-  let encoded = payload.encode(data, flash)
+  let encoded = session.encode_payload(data, flash)
   let now = unix_timestamp.now()
   let sql =
     "INSERT INTO "
