@@ -5,16 +5,15 @@ import glimr/db/db.{
   BlobValue, BoolValue, FloatValue, IntValue, NullValue, StringValue,
 }
 import glimr_postgres/db/gen
-import glimr_postgres/db/pool
-import glimr_postgres/db/query
+import glimr_postgres/postgres
 import pog
 import test_helper
 
-fn with_pool(f: fn(pool.Pool) -> a) -> a {
+fn with_pool(f: fn(postgres.Pool) -> a) -> a {
   let config = test_helper.test_config()
-  let assert Ok(p) = pool.start_pool(config)
+  let assert Ok(p) = postgres.start_pool(config)
   let result = f(p)
-  pool.stop_pool(p)
+  postgres.stop_pool(p)
   result
 }
 
@@ -147,13 +146,14 @@ pub fn to_pog_value_blob_test() {
 
 pub fn int_value_roundtrip_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
-      let assert Ok(_) = query.exec(conn, "CREATE TABLE gen_test (val INTEGER)")
+    postgres.get_connection(p, fn(conn) {
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let assert Ok(_) =
+        postgres.exec(conn, "CREATE TABLE gen_test (val INTEGER)")
 
       let pog_val = gen.to_pog_value(gen.int(42))
       let assert Ok(_) =
-        query.query(
+        postgres.query(
           conn,
           "INSERT INTO gen_test VALUES ($1)",
           [pog_val],
@@ -162,24 +162,24 @@ pub fn int_value_roundtrip_test() {
 
       let decoder = decode.at([0], decode.int)
       let assert Ok([result]) =
-        query.query(conn, "SELECT val FROM gen_test", [], decoder)
+        postgres.query(conn, "SELECT val FROM gen_test", [], decoder)
 
       result |> should.equal(42)
 
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
     })
   })
 }
 
 pub fn string_value_roundtrip_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
-      let assert Ok(_) = query.exec(conn, "CREATE TABLE gen_test (val TEXT)")
+    postgres.get_connection(p, fn(conn) {
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let assert Ok(_) = postgres.exec(conn, "CREATE TABLE gen_test (val TEXT)")
 
       let pog_val = gen.to_pog_value(gen.string("hello world"))
       let assert Ok(_) =
-        query.query(
+        postgres.query(
           conn,
           "INSERT INTO gen_test VALUES ($1)",
           [pog_val],
@@ -188,24 +188,25 @@ pub fn string_value_roundtrip_test() {
 
       let decoder = decode.at([0], decode.string)
       let assert Ok([result]) =
-        query.query(conn, "SELECT val FROM gen_test", [], decoder)
+        postgres.query(conn, "SELECT val FROM gen_test", [], decoder)
 
       result |> should.equal("hello world")
 
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
     })
   })
 }
 
 pub fn bool_value_roundtrip_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
-      let assert Ok(_) = query.exec(conn, "CREATE TABLE gen_test (val BOOLEAN)")
+    postgres.get_connection(p, fn(conn) {
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let assert Ok(_) =
+        postgres.exec(conn, "CREATE TABLE gen_test (val BOOLEAN)")
 
       let pog_val = gen.to_pog_value(gen.bool(True))
       let assert Ok(_) =
-        query.query(
+        postgres.query(
           conn,
           "INSERT INTO gen_test VALUES ($1)",
           [pog_val],
@@ -214,24 +215,24 @@ pub fn bool_value_roundtrip_test() {
 
       let decoder = decode.at([0], decode.bool)
       let assert Ok([result]) =
-        query.query(conn, "SELECT val FROM gen_test", [], decoder)
+        postgres.query(conn, "SELECT val FROM gen_test", [], decoder)
 
       result |> should.equal(True)
 
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
     })
   })
 }
 
 pub fn null_value_roundtrip_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
-      let assert Ok(_) = query.exec(conn, "CREATE TABLE gen_test (val TEXT)")
+    postgres.get_connection(p, fn(conn) {
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let assert Ok(_) = postgres.exec(conn, "CREATE TABLE gen_test (val TEXT)")
 
       let pog_val = gen.to_pog_value(gen.null())
       let assert Ok(_) =
-        query.query(
+        postgres.query(
           conn,
           "INSERT INTO gen_test VALUES ($1)",
           [pog_val],
@@ -240,25 +241,26 @@ pub fn null_value_roundtrip_test() {
 
       let decoder = decode.at([0], decode.optional(decode.string))
       let assert Ok([result]) =
-        query.query(conn, "SELECT val FROM gen_test", [], decoder)
+        postgres.query(conn, "SELECT val FROM gen_test", [], decoder)
 
       result |> should.equal(option.None)
 
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
     })
   })
 }
 
 pub fn blob_value_roundtrip_test() {
   with_pool(fn(p) {
-    pool.get_connection(p, fn(conn) {
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
-      let assert Ok(_) = query.exec(conn, "CREATE TABLE gen_test (val BYTEA)")
+    postgres.get_connection(p, fn(conn) {
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let assert Ok(_) =
+        postgres.exec(conn, "CREATE TABLE gen_test (val BYTEA)")
 
       let data = <<1, 2, 3, 4, 5>>
       let pog_val = gen.to_pog_value(gen.blob(data))
       let assert Ok(_) =
-        query.query(
+        postgres.query(
           conn,
           "INSERT INTO gen_test VALUES ($1)",
           [pog_val],
@@ -267,11 +269,11 @@ pub fn blob_value_roundtrip_test() {
 
       let decoder = decode.at([0], decode.bit_array)
       let assert Ok([result]) =
-        query.query(conn, "SELECT val FROM gen_test", [], decoder)
+        postgres.query(conn, "SELECT val FROM gen_test", [], decoder)
 
       result |> should.equal(<<1, 2, 3, 4, 5>>)
 
-      let _ = query.exec(conn, "DROP TABLE IF EXISTS gen_test")
+      let _ = postgres.exec(conn, "DROP TABLE IF EXISTS gen_test")
     })
   })
 }

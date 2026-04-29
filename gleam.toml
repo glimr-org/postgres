@@ -1,5 +1,5 @@
 name = "glimr_postgres"
-version = "1.0.3"
+version = "1.0.4"
 
 description = "PostgreSQL driver for the Glimr web framework"
 licences = ["MIT"]

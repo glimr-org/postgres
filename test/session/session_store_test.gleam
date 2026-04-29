@@ -4,7 +4,6 @@ import glimr/config
 import glimr/db/db
 import glimr/session
 import glimr_postgres/postgres
-import glimr_postgres/session/session_store
 import simplifile
 import test_helper
 
@@ -55,7 +54,7 @@ fn with_clean_session(f: fn() -> a) -> a {
   let _ = db.exec_with(conn, "TRUNCATE sessions_test", [])
 
   // Create and cache the session store
-  let store = session_store.create(db)
+  let store = postgres.session_store(db)
   session.setup(store)
 
   let result = f()
